@@ -22,6 +22,11 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
+import sys
+
+# Running `python scripts/benchmark_trained_decoding.py` keeps scripts/ on sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 from pathsnap.decoder import Candidate, Observation, decode
 from pathsnap.evaluation import evaluate
 from pathsnap.routing import Position, RoadGraph
@@ -209,7 +214,7 @@ def report_markdown(summary, per_trip):
     ]
     for r in per_trip:
         lines.append(
-            f"| {r['model']} | \`{r['trip_id']}\` | {r['aligned']:,} | {r['top1_accuracy']:.2%} "
+            f"| {r['model']} | `{r['trip_id']}` | {r['aligned']:,} | {r['top1_accuracy']:.2%} "
             f"| {r['viterbi_accuracy']:.2%} | {r['accuracy_gain_pp']:+.2f} "
             f"| {r['top1_continuity']:.2%} | {r['viterbi_continuity']:.2%} | {r['decode_seconds']:.2f} |"
         )
@@ -218,13 +223,13 @@ def report_markdown(summary, per_trip):
         "## Method",
         "",
         "- Scores: Person 2's committed Logistic Regression and KNN student-test probability exports; no retraining or distance-score substitution.",
-        "- Keys: full \`(split, trip_id, obs_id, arc_id)\` validation/join, one probability per candidate. Candidate ranking breaks ties by smaller candidate distance rank, then smaller arc ID.",
+        "- Keys: full `(split, trip_id, obs_id, arc_id)` validation/join, one probability per candidate. Candidate ranking breaks ties by smaller candidate distance rank, then smaller arc ID.",
         "- Accuracy: independently ranked Top-1 versus Viterbi road-arc assignment on aligned observations, with absent reference arcs counted wrong. Unmatched and ambiguous labels excluded and counted.",
         "- Continuity: same **strict directly adjacent road-arc metric** as baseline training script: among consecutive observations without GPS gaps/row breaks and with valid predictions, the two arcs must be identical or their directed endpoints directly connect. This can penalize real multi-arc paths; it is not a complete graph-path continuity measure.",
         "- Runtime: per-model score export load and key join (scoring), Viterbi decode only (decoding), and full trip pipeline including I/O, graph assembly and evaluation (end-to-end). Times are cumulative and machine dependent.",
         "- Only student-test data is used for this experiment. Reference labels are never passed to the scorer or decoder.",
         "",
-        "Reproduce with \`python scripts/benchmark_trained_decoding.py\` from the repository root.",
+        "Reproduce with `python scripts/benchmark_trained_decoding.py` from the repository root.",
     ]
     return "\n".join(lines) + "\n"
 
