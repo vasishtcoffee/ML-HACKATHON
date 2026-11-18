@@ -1,0 +1,19 @@
+{
+  "objective": "mean three-fold training-trip top1",
+  "best_cv_top1": 0.5634098144474032,
+  "parameters": {
+    "n_estimators": 100,
+    "max_depth": 5,
+    "learning_rate": 0.02171761062796407,
+    "min_child_weight": 69.09277584332322,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "objective": "binary:logistic",
+    "eval_metric": "logloss",
+    "tree_method": "hist",
+    "n_jobs": 4,
+    "random_state": 42,
+    "reg_lambda": 34.89551403712389
+  },
+  "trials": 6
+}
