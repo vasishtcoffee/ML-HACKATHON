@@ -158,6 +158,31 @@ For a one-laptop test, use `http://localhost:8000`. If you serve the UI
 from a different origin, set `PATHSNAP_UI_ORIGIN` on Laptop 1 to that exact
 origin before starting the API.
 
+### Person 3 Viterbi tuning and faster local demo
+
+The original decoder defaults (`beta_m=30`, `gap_seconds=5`) remain the
+recommended settings for the current trained-score UI. A six-training-trip
+parameter search selected 60 m / 10 s using **distance scores**, and four
+disjoint training trips validated a modest improvement. However, the
+student-test trained scorers performed slightly worse at 60/10, so the API
+keeps the established defaults. See
+[the full evidence and route-break tables](docs/person3_viterbi_tuning_speed.md).
+
+RoadGraph now supports a **bounded-safe per-trip shortest-path cache**.
+FastAPI enables 20,000 cached node-pair results per trip by default.
+To disable it for debugging/uncached comparisons, set
+`PATHSNAP_SHORTEST_CACHE_SIZE=0` before starting Uvicorn. The UI now shows
+route break count, road-routing time and Folium map-render time alongside
+the full server response preparation time. One measured KNN trip ran from
+7.264 seconds uncached to 2.283 seconds cached, with **identical predicted
+arcs and route segments**. Timing is hardware-dependent.
+
+The continuous integration
+[benchmark workflow](.github/workflows/viterbi-tuning-speed.yml) reproduces
+the 20 trained comparisons, training-only parameter search, validation and
+route-equivalence profile; its [API smoke suite](.github/workflows/demo-speed-smoke.yml)
+tests the real local trip response. Neither workflow reads evaluator trips.
+
 The development demo uses the ten **student-test** trips (not the reserved
 evaluator trips). The scorer selector offers the **distance development
 baseline**, **Logistic Regression**, and **KNN**. The two trained options read
