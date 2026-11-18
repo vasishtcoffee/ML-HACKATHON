@@ -1,0 +1,42 @@
+name: PathSnap trained scorer route comparison
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - pathsnap/routing-decoder
+    paths:
+      - .github/workflows/compare-trained-routes.yml
+      - scripts/benchmark_trained_decoding.py
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout committed inputs and code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exact data dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.2.0 pandas==2.2.3 pyarrow==22.0.0 folium==1.0.0
+      - name: Run all 20 student-test decoding evaluations
+        run: |
+          python scripts/benchmark_trained_decoding.py 2>&1 | tee trained_routes_run.log
+      - name: Publish benchmark output and exact logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-score-route-comparison
+          path: |
+            experiments/route_comparison/
+            trained_routes_run.log
+          if-no-files-found: warn
+          retention-days: 30
