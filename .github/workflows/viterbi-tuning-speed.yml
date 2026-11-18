@@ -7,6 +7,8 @@ on:
       - pathsnap/viterbi-tuning-speed
     paths:
       - .github/workflows/viterbi-tuning-speed.yml
+      - tests/test_routing_cache.py
+      - scripts/tune_viterbi.py
 
 permissions:
   contents: read
