@@ -50,13 +50,21 @@ Implemented in this development branch:
   highest score, then lowest `candidate_rank`, then lowest `arc_id`.
 
 The current API / UI is a **development** demo, not the final evaluation setup.
-It does not yet demonstrate that Viterbi improves trained-classifier accuracy.
-Do not claim such improvements without recording actual results.
+A reproducible student-test experiment now demonstrates improved pointwise accuracy
+and direct-arc continuity for both trained classifiers; these development findings
+do not establish final evaluator-trip performance.
 
 Remaining Person 3 tasks:
-1. Run the two trained classifiers through decoding across all ten student-test trips;
-   record per-trip and aggregate top-1 and Viterbi accuracy, coverage, route
-   continuity, failure/gap statistics and inference times. Report regressions too.
+1. **Completed development benchmark:** both trained Logistic Regression and KNN
+   score exports decoded on all 10 student-test trips. Results and replay instructions
+   are in `experiments/route_comparison/README.md`; detailed machine-generated
+   CSVs and logs are in GitHub Actions run 44248262552. Logistic Regression:
+   54.58% top-1 vs 80.22% Viterbi; KNN: 54.70% vs 81.01%, using 16,317
+   aligned observations per model. Continuity improved from 82.11% to 95.46%
+   (Logistic Regression) and from 82.04% to 95.66% (KNN).
+   The benchmark's score-file load/join time excludes model inference.
+   Still assess failures, gaps, parameter sensitivity and reported regression
+   cases as part of final report preparation.
 2. Verify model selection and Viterbi transition/gap parameters from permitted
    development data; protect the reserved evaluator split.
 3. Add final server-side classifier inference for evaluator-trip candidates;
