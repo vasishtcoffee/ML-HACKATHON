@@ -29,9 +29,9 @@ class CacheTests(unittest.TestCase):
         self.assertGreaterEqual(self.cached.shortest_cache_hits,1)
 
     def test_smaller_failed_bounds_reuse_proof(self):
-        self.cached.route(self.start,self.end,50)
+        self.cached.route(self.start,self.end,220)
         before=self.cached.shortest_searches
-        self.cached.route(self.start,self.end,10)
+        self.cached.route(self.start,self.end,180)
         self.assertEqual(before,self.cached.shortest_searches)
         self.assertGreater(self.cached.shortest_cache_hits,0)
 
