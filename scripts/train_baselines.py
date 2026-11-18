@@ -1,4 +1,4 @@
-"""Train and evaluate PathSnap's two baseline classifiers."""
+"""Train and evaluate PathSnap's baseline classifiers."""
 import argparse
 from importlib.metadata import version
 import json
@@ -10,6 +10,7 @@ from zipfile import ZipFile
 import joblib
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, f1_score, log_loss, precision_score, recall_score
 from sklearn.model_selection import GroupKFold
@@ -27,6 +28,8 @@ SEED = 42
 N_FOLDS = 5
 THRESHOLD = 0.5
 MODELS = {
+    "random_forest": {"n_estimators": 100, "max_depth": 16, "min_samples_leaf": 10,
+                      "max_features": "sqrt", "n_jobs": 4, "random_state": SEED},
     "logistic_regression": {"C": 1.0, "max_iter": 200, "solver": "lbfgs", "random_state": SEED},
     "knn": {"n_neighbors": 31, "weights": "uniform", "algorithm": "kd_tree", "metric": "euclidean"},
 }
@@ -70,9 +73,11 @@ def fit_model(name, candidates):
     y = eligible["positive"].to_numpy(dtype=np.int8)
     estimator = (
         LogisticRegression(**MODELS[name]) if name == "logistic_regression"
+        else RandomForestClassifier(**MODELS[name]) if name == "random_forest"
         else KNeighborsClassifier(**MODELS[name])
     )
-    pipeline = make_pipeline(StandardScaler(), estimator)
+    pipeline = (make_pipeline(estimator) if name == "random_forest"
+                else make_pipeline(StandardScaler(), estimator))
     start = perf_counter()
     pipeline.fit(x, y)
     return {
@@ -100,6 +105,8 @@ def evaluate(timeline, candidates, score, graphs):
     correct = aligned["arc_id"].eq(aligned["reference_arc_id"]).fillna(False)
     continuous = transitions = 0
     for (split, trip), group in predictions.groupby(["split", "trip_id"], sort=False):
+        if graphs is None:
+            continue
         arcs = graphs[(split, trip)]
         predicted = group["arc_id"].fillna(-1).to_numpy(dtype=np.int64)
         pair = (
@@ -140,11 +147,14 @@ def measure(model, timeline, candidates, graphs, phase, fold=None):
     }, score
 
 
-def run(processed, archive, output):
+def run(processed, archive, output, models=None):
+    models = list(MODELS) if models is None else models
     output.mkdir(parents=True, exist_ok=True)
     train_timeline, train = load_split(processed, "train")
     test_timeline, student_test = load_split(processed, "student_test")
-    graphs = load_arcs(processed, archive)
+    graphs = load_arcs(processed, archive) if archive.is_file() else None
+    if graphs is None:
+        print("Raw archive unavailable: route continuity is not evaluated.", flush=True)
     train_trips = set(train_timeline["trip_id"])
     test_trips = set(test_timeline["trip_id"])
     if len(train_trips) != 80 or len(test_trips) != 10 or train_trips & test_trips:
@@ -163,14 +173,15 @@ def run(processed, archive, output):
     ]).sort_values("trip_id").to_csv(output / "cv_folds.csv", index=False)
     config = {
         "features": FEATURES, "candidate_threshold": THRESHOLD, "seed": SEED, "folds": N_FOLDS,
-        "configurations": MODELS,
+        "configurations": {name: MODELS[name] for name in models},
+        "continuity_available": graphs is not None,
         "versions": {name: version(name) for name in
                      ("scikit-learn", "numpy", "pandas", "scipy", "joblib", "pyarrow")},
     }
     (output / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     results = []
-    for name in MODELS:
+    for name in models:
         for fold, fit_ids, val_ids in folds:
             model, n_fit, fit_seconds = fit_model(name, train.loc[train["trip_id"].isin(fit_ids)])
             val = train.loc[train["trip_id"].isin(val_ids)]
@@ -204,9 +215,10 @@ def main():
         "PATHSNAP_DATA_ZIP", ROOT / "data" / "raw" / "Student folder.zip",
     )))
     parser.add_argument("--output", type=Path, default=ROOT / "experiments/baselines")
+    parser.add_argument("--models", nargs="+", choices=list(MODELS), default=list(MODELS))
     args = parser.parse_args()
     with threadpool_limits(limits=4):
-        run(args.processed_dir, args.archive, args.output)
+        run(args.processed_dir, args.archive, args.output, args.models)
 
 
 if __name__ == "__main__":
