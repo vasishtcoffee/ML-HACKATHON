@@ -72,25 +72,26 @@ def load_arcs(processed, archive_path):
     return graphs
 
 
-def fit_model(name, candidates):
+def fit_model(name, candidates, *, parameters=None):
+    parameters = MODELS[name] if parameters is None else parameters
     eligible = candidates.loc[candidates["usable_for_training"]]
     x = eligible[FEATURES].to_numpy(dtype="float64")
     y = eligible["positive"].to_numpy(dtype=np.int8)
     if name == "xgboost":
         from xgboost import XGBClassifier
-        estimator = XGBClassifier(**MODELS[name])
+        estimator = XGBClassifier(**parameters)
     elif name == "random_forest":
-        estimator = RandomForestClassifier(**MODELS[name])
+        estimator = RandomForestClassifier(**parameters)
     elif name == "logistic_regression":
-        estimator = LogisticRegression(**MODELS[name])
+        estimator = LogisticRegression(**parameters)
     else:
-        estimator = KNeighborsClassifier(**MODELS[name])
+        estimator = KNeighborsClassifier(**parameters)
     pipeline = (make_pipeline(estimator) if name in ("random_forest", "xgboost")
                 else make_pipeline(StandardScaler(), estimator))
     start = perf_counter()
     pipeline.fit(x, y)
     return {
-        "id": name, "features": FEATURES, "parameters": MODELS[name], "pipeline": pipeline,
+        "id": name, "features": FEATURES, "parameters": parameters, "pipeline": pipeline,
         "score_kind": "candidate_positive_probability",
         "score_transform": "(31 * positive_vote_fraction + 1) / 33" if name == "knn" else "predict_proba",
     }, len(y), perf_counter() - start

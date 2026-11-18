@@ -1,6 +1,48 @@
 # PathSnap
 
-GPS track exploration and preprocessing for the ML hackathon.
+PathSnap reconstructs a directed road route from noisy GPS using a trained
+candidate classifier and HMM/Viterbi decoding.
+
+## Model comparison
+
+**KNN with GPS motion features** is the final model. It matched **13,702 of
+16,317** aligned GPS observations after Viterbi. Use the decoded accuracy
+for the end-to-end student-test result. Top-1 measures the independent
+classifier choice before Viterbi.
+
+| Model | Key settings | CV macro F1 | Student top-1 | **Decoded accuracy** | Decoded continuity | Student macro F1 | Log loss | Live scoring (10 trips) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **KNN + motion** | 51 neighbours, uniform vote, 16,000-observation index | 90.10% | 85.93% | **83.97%** | 96.68% | 91.03% | 0.097 | 35.50 s |
+| MLP + motion | 32×16 hidden layers, 5 epochs | 90.92% | 85.74% | 83.48% | 96.19% | 91.64% | 0.076 | 1.94 s |
+| Logistic Regression + heading | C=1, positive class weight=2 | 88.17% | 85.33% | 83.15% | 96.11% | 88.42% | 0.118 | 0.63 s |
+| Tuned Random Forest | 100 trees, depth 20, min leaf 35, balanced weights | 78.25%† | 54.75% | 81.07% | 95.39% | 78.15% | 0.264 | 3.46 s |
+| XGBoost (baseline) | 200 trees, depth 6, learning rate 0.05 | 75.45% | 54.78% | 80.36% | 94.80% | 74.94% | 0.161 | 0.74 s |
+
+The table shows the highest decoded-accuracy variant per family. All 13
+variants ran on the same ten student-test trips with the same candidate set,
+alignment and decoder settings. CV uses grouped training trips (three folds
+for the heading/motion models and five for the trees). † Random Forest CV
+comes from the team's Kaggle notebook, which regenerated its inputs. Its
+student-test row comes from the local refit on the committed inputs.
+Macro F1 and log loss measure binary candidate classification.
+
+KNN led MLP by 80 correct observations and took longer to score. For KNN,
+decoding raised strict direct-arc continuity by 5.34 percentage points and
+ordered route-pair F1 from 53.88% to 61.54%, while reducing pointwise
+accuracy on six of the ten trips. Logistic Regression had the highest
+decoded route-pair F1 (62.38%). These are development results on the supplied
+student-test split.
+
+Read the [benchmark protocol and reproduction commands](experiments/final_viterbi_comparison/README.md),
+[all 13 aggregate results](experiments/final_viterbi_comparison/aggregate.csv)
+and [per-trip results](experiments/final_viterbi_comparison/per_trip.csv).
+
+## Run the live demo
+
+Follow the [Windows and macOS/Linux launch instructions](docs/final_model_live_demo.md).
+Start FastAPI on Laptop 1 and serve the browser UI from Laptop 2. A single
+laptop can run both. For practice, connect the UI and decode student-test
+trip `00000052` with **Final model**.
 
 ## Setup
 
@@ -21,8 +63,8 @@ cells in order. Map tiles require internet access.
 `requirements/requirements.in` includes the existing `requirements/requirements-preprocessing.txt`
 versions and adds the Jupyter interface. `requirements/requirements.txt` pins the resolved dependencies for the Python
 3.11 macOS environment. On other platforms, resolve `requirements/requirements.in` in a
-fresh environment to account for platform-specific Jupyter dependencies. Model-training and API packages will be added when those
-components exist.
+fresh environment to account for platform-specific Jupyter dependencies. Use the
+[live demo requirements](requirements/requirements-live-demo.txt) for the API.
 
 
 ## Reproduce the preprocessing
@@ -135,97 +177,6 @@ python scripts/generate_candidates.py
 
 Load either table with `pandas.read_parquet()`. Parquet preserves the leading zeros in `trip_id`.
 
-## Run the development demo
-
-On Laptop 1, place the supplied ZIP at `data/raw/Student folder.zip` or
-set `PATHSNAP_DATA_ZIP`. With the preprocessing dependencies installed:
-
-```bash
-python -m pip install -r requirements/requirements-demo.txt
-python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
-```
-
-On Laptop 2, from the repository root:
-
-```bash
-python -m http.server 8001 --bind 127.0.0.1 --directory ui
-```
-
-Open `http://localhost:8001`, enter Laptop 1's LAN URL
-(e.g. `http://192.168.1.10:8000`), click **Connect**, and choose a trip.
-Both laptops must be on a network that permits the connection to port 8000.
-For a one-laptop test, use `http://localhost:8000`. If you serve the UI
-from a different origin, set `PATHSNAP_UI_ORIGIN` on Laptop 1 to that exact
-origin before starting the API.
-
-### Person 3 Viterbi tuning and faster local demo
-
-The original decoder defaults (`beta_m=30`, `gap_seconds=5`) remain the
-recommended settings for the current trained-score UI. A six-training-trip
-parameter search selected 60 m / 10 s using **distance scores**, and four
-disjoint training trips validated a modest improvement. However, the
-student-test trained scorers performed slightly worse at 60/10, so the API
-keeps the established defaults. See
-[the full evidence and route-break tables](docs/person3_viterbi_tuning_speed.md).
-
-RoadGraph now supports a **bounded-safe per-trip shortest-path cache**.
-FastAPI enables 20,000 cached node-pair results per trip by default.
-To disable it for debugging/uncached comparisons, set
-`PATHSNAP_SHORTEST_CACHE_SIZE=0` before starting Uvicorn. The UI now shows
-route break count, road-routing time and Folium map-render time alongside
-the full server response preparation time. One measured KNN trip ran from
-7.264 seconds uncached to 2.283 seconds cached, with **identical predicted
-arcs and route segments**. Timing is hardware-dependent.
-
-The continuous integration
-[benchmark workflow](.github/workflows/viterbi-tuning-speed.yml) reproduces
-the 20 trained comparisons, training-only parameter search, validation and
-route-equivalence profile; its [API smoke suite](.github/workflows/demo-speed-smoke.yml)
-tests the real local trip response. Neither workflow reads evaluator trips.
-
-The development demo uses the ten **student-test** trips (not the reserved
-evaluator trips). The scorer selector offers the **distance development
-baseline**, **Logistic Regression**, and **KNN**. The two trained options read
-`experiments/baselines/logistic_regression_student_scores.parquet` and
-`experiments/baselines/knn_student_scores.parquet`, produced by Person 2's
-baseline experiments on the main branch. These score files must exist locally
-before you select the trained options. The distance option still works without
-them. 
-
-The score loader validates each `(split, trip_id, obs_id, arc_id)` key, the
-selected trip and partition, uniqueness, completeness and finite probabilities
-in `[0, 1]`. It joins by the complete candidate key, **never by Parquet row
-position**. On a missing, duplicate, extra, or invalid score the API returns
-a clear error rather than silently substituting distances.
-
-The API uses exactly the **same candidate probabilities** for independent
-top-1 predictions and for Viterbi decoding. The Folium map overlays decoded
-arcs in pink. The UI compares both methods' accuracy on aligned student-test
-observations; candidate misses count against both. Ambiguous and unmatched
-reference observations are excluded and counted separately. Ground-truth
-labels are loaded server-side only for metrics, not for scoring, decoding or
-UI responses. Successful requests appear in the Uvicorn terminal. Internet
-access is required for map assets.
-
-A direct API request may supply `{"trip_id":"00000052","model":"knn"}`
-(or `"logistic_regression"` or `"distance"`). The /trips endpoint lists
-available model names. The trained-score files are development artifacts:
-the **final evaluator deployment** needs a server-side trained-model inference
-path on evaluator-trip candidates, not student-test precomputed predictions.
-
-Run the keyed-scoring regression tests:
-
-```sh
-python -m unittest discover -s tests -v
-```
-
-**Outstanding Person 3 deliverables:** run trained-score top-1 versus Viterbi
-comparisons over all student-test trips, record actual results and route
-continuity/failure analysis, justify transition/gap parameters, finalize
-report sections 5–7, and verify a two-laptop evaluation deployment using the
-reserved trips without exposing ground truth to the model or UI. No claim of
-Viterbi improvement is made until the experiments are run.
-
 ## Reference labels for training and evaluation
 
 The two `data/processed/reference_labels_*.parquet` files contain one row per
@@ -322,3 +273,17 @@ python scripts/visualize_classifier_tuning.py
 
 The [classifier tuning report](experiments/classifier_tuning/README.md) links the
 trial logs, selected settings, baseline comparisons, and scores for Viterbi.
+
+## Direction and motion feature experiment
+
+Use the same three training-trip folds as the Bayesian tuning run:
+
+```sh
+python -m pip install -r requirements/requirements-classifier-tuning.txt
+python scripts/train_motion_models.py
+python scripts/benchmark_motion_decoding.py
+python scripts/visualize_motion_models.py
+```
+
+The [direction and motion report](experiments/motion_features/README.md) includes
+the feature comparison, selected classifiers, and matched Viterbi results.

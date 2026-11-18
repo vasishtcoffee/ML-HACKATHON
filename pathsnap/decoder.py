@@ -5,6 +5,9 @@ from math import isfinite, log
 
 from .routing import Position, distance_m
 
+# Selected in the training-trip decoder calibration documented in docs/.
+CALIBRATED_DECODER = {"beta_m": 60.0, "gap_seconds": 10.0}
+
 
 @dataclass(frozen=True)
 class Candidate:

@@ -1,0 +1,3 @@
+-r requirements-xgboost.txt
+-r requirements-demo.txt
+httpx

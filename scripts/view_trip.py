@@ -114,8 +114,8 @@ def render_trip(track, nodes, arcs, split, trip_id, *, route_segments=None):
                "gaps_over_5s": int(dt.gt(5).sum()),
                "duration_seconds": float(track.timestamp_s.iloc[-1] - track.timestamp_s.iloc[0])}
     title = html.escape(f"{split} / {trip_id}")
-    mode = ("Development prediction"
-            if route_segments is not None else "Exploration only · No model predictions.")
+    decoded_legend = ('<div><span style="color:#be185d">━</span> Decoded route</div>'
+                      if route_segments is not None else "")
     panel = f"""
     <style>
       .leaflet-container {{ background: #e9eef4; }}
@@ -135,9 +135,9 @@ def render_trip(track, nodes, arcs, split, trip_id, *, route_segments=None):
       <div class="counts">{len(track):,} GPS points · {int(near.sum()):,} visible arcs</div>
       <div><span style="color:#2563eb">●</span> Recorded GPS observations</div>
       <div><span style="color:#64748b">━</span> Road segments</div>
+      {decoded_legend}
       <div><span style="color:#d97706">○</span> After a gap &gt; 5 s ({summary['gaps_over_5s']})</div>
-      <div class="muted" style="margin-top:10px">{mode}<br>
-      GPS points are not joined across gaps.<br>Map tiles and libraries need internet access.</div>
+      <div class="muted" style="margin-top:10px">Map tiles and libraries need internet access.</div>
     </aside>"""
     trip_map.get_root().html.add_child(folium.Element(panel))
     trip_map.get_root().header.add_child(folium.Element("<title>PathSnap · Trip " + html.escape(trip_id) + "</title>"))

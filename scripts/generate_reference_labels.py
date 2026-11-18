@@ -7,7 +7,10 @@ from zipfile import ZipFile
 import numpy as np
 import pandas as pd
 
-from generate_candidates import OBSERVATION_KEY, ROOT, project_candidates, read_graph
+if __package__:
+    from .generate_candidates import OBSERVATION_KEY, ROOT, project_candidates, read_graph
+else:
+    from generate_candidates import OBSERVATION_KEY, ROOT, project_candidates, read_graph
 
 
 MAX_REFERENCE_DISTANCE_M = 75.0

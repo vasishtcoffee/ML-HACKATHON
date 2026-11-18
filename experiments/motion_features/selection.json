@@ -1,0 +1,28 @@
+{
+  "logistic_regression": {
+    "variant": "heading",
+    "parameters": {
+      "C": 1.0,
+      "positive_weight": 2.0
+    },
+    "validation_top1": 0.8406472638282018
+  },
+  "knn": {
+    "variant": "motion",
+    "parameters": {
+      "n_neighbors": 51,
+      "weights": "uniform"
+    },
+    "validation_top1": 0.8447625278421125
+  },
+  "mlp": {
+    "variant": "motion",
+    "parameters": {
+      "shape": "32x16",
+      "epochs": 5,
+      "alpha": 0.00023242917225434374,
+      "learning_rate": 0.0022350140084872587
+    },
+    "validation_top1": 0.8461763942455578
+  }
+}

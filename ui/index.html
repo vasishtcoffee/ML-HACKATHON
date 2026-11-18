@@ -21,7 +21,8 @@
     <button id="connect">Connect</button>
   </div>
   <form id="run">
-    <label>Student-test trip <select id="trips" disabled></select></label>
+    <label>Trip dataset <select id="split" disabled><option value="student_test">Student-test (development)</option><option value="evaluator">Evaluator (live inference)</option></select></label>
+    <label>Trip <select id="trips" disabled></select></label>
     <label>Candidate scorer <select id="model" disabled></select></label>
     <button id="decode" disabled>Decode route</button>
   </form>
@@ -32,60 +33,87 @@
   const backend = document.querySelector('#backend');
   const connect = document.querySelector('#connect');
   const trips = document.querySelector('#trips');
+  const split = document.querySelector('#split');
   const decode = document.querySelector('#decode');
   const model = document.querySelector('#model');
   const status = document.querySelector('#status');
   const map = document.querySelector('#map');
   let api;
+  let available = {student_test: [], evaluator: []};
+  function refreshTrips() {
+    trips.replaceChildren();
+    for (const id of available[split.value]) trips.add(new Option(id, id));
+    map.hidden = true;
+    const evaluator = split.value === 'evaluator';
+    trips.disabled = decode.disabled = !trips.options.length;
+    model.disabled = evaluator;
+    if (evaluator) model.value = 'final';
+    status.textContent = trips.options.length ? 'Select a trip, then decode its route.' :
+      (evaluator ? 'No evaluator trips configured on Laptop 1.' : 'No student-test trips available.');
+  }
+  split.addEventListener('change', refreshTrips);
   async function request(path, options) {
     const response = await fetch(new URL(path, api), options);
     if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
     return response.json();
   }
   connect.onclick = async () => {
-    connect.disabled = trips.disabled = model.disabled = decode.disabled = true;
+    connect.disabled = trips.disabled = model.disabled = decode.disabled = split.disabled = true;
     map.hidden = true;
     trips.replaceChildren();
     model.replaceChildren();
     status.textContent = 'Connecting…';
     try {
-      api = new URL(backend.value);
+      api = new URL(backend.value.trim());
       const data = await request('/trips');
-      for (const id of data.trip_ids) trips.add(new Option(id, id));
+      available = {student_test: data.trip_ids || [], evaluator: data.evaluator_trip_ids || []};
+      split.replaceChildren(new Option('Student-test (development)', 'student_test'),
+        new Option('Evaluator (live inference)', 'evaluator'));
+      split.value = available.evaluator.length ? 'evaluator' : 'student_test';
+      split.disabled = false;
       for (const [id, label] of Object.entries(data.models)) model.add(new Option(label, id));
-      model.value = "distance"; // Guaranteed development fallback when trained exports are absent.
-      status.textContent = data.trip_ids.length ? 'Select a trip to decode.' : 'No trips available.';
-      trips.disabled = model.disabled = decode.disabled = !data.trip_ids.length;
+      model.value = 'final';
+      refreshTrips();
     } catch (error) {
       status.textContent = 'Connection failed. Check the backend address and allowed UI origin. ' + error.message;
     } finally { connect.disabled = false; }
   };
   document.querySelector('#run').onsubmit = async (event) => {
     event.preventDefault();
-    connect.disabled = trips.disabled = decode.disabled = true;
+    connect.disabled = trips.disabled = model.disabled = split.disabled = decode.disabled = true;
     map.hidden = true;
     status.textContent = 'Decoding trip ' + trips.value + '…';
     try {
       const data = await request('/predict', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({trip_id: trips.value, model: model.value})
+        body: JSON.stringify({trip_id: trips.value, model: model.value, split: split.value})
       });
       map.srcdoc = data.map_html;
       map.hidden = false;
       const e = data.evaluation;
-      const percent = value => value == null ? 'Unavailable' : (100 * value).toFixed(1) + '%';
-      status.textContent = data.scoring + ' · ' + data.matched_observations + '/' +
-        data.observations + ' observations matched · ' + data.route_segments.length +
-        ' route segments (' + Math.max(0, data.route_segments.length - 1) + ' breaks) · ' +
-        data.runtime_seconds + ' s server total · Top-1: ' + percent(e.top1_accuracy) +
-        ' · Viterbi: ' + percent(e.viterbi_accuracy) + ' · ' + e.aligned +
-        ' aligned, including ' + e.candidate_misses + ' candidate misses. Excluded ' +
-        e.ambiguous_excluded + ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.' +
+      const percent = value => value == null ? 'Unavailable' : (100 * value).toFixed(2) + '%';
+      const metricText = e ? (
+        ' · Classifier top-1: ' + percent(e.top1_accuracy) +
+        ' · Decoded accuracy: ' + percent(e.viterbi_accuracy) +
+        ' · ' + e.aligned + ' aligned, including ' + e.candidate_misses +
+        ' candidate misses. Excluded ' + e.ambiguous_excluded +
+        ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.'
+      ) : ' · Accuracy unavailable. Laptop 1 has no configured evaluator reference.';
+      const segments = data.route_segments.length;
+      status.textContent = 'Trip ' + data.trip_id + ' · ' + data.scoring + ' · ' + data.matched_observations + '/' +
+        data.observations + ' observations matched · ' + segments +
+        (segments === 1 ? ' route segment (' : ' route segments (') + Math.max(0, segments - 1) + ' breaks) · ' +
+        data.runtime_seconds + ' s server total' + metricText +
         (data.timings ? ' Routing: ' + data.timings.road_routing_seconds.toFixed(2) +
         ' s · Map: ' + data.timings.map_render_seconds.toFixed(2) + ' s.' : '');
+
     } catch (error) {
       status.textContent = 'Decoding failed. ' + error.message;
-    } finally { connect.disabled = trips.disabled = model.disabled = decode.disabled = false; }
+    } finally {
+      connect.disabled = split.disabled = false;
+      model.disabled = split.value === 'evaluator';
+      trips.disabled = decode.disabled = !trips.options.length;
+    }
   };
 </script>
 </html>
