@@ -158,18 +158,48 @@ For a one-laptop test, use `http://localhost:8000`. If you serve the UI
 from a different origin, set `PATHSNAP_UI_ORIGIN` on Laptop 1 to that exact
 origin before starting the API.
 
-The development demo uses the ten student-test trips and scores their exported
-candidates by distance before Viterbi. The map displays the decoded arcs in
-pink. The UI compares top-1 candidate accuracy with Viterbi accuracy on aligned
-student-test observations. Candidate misses count against both methods.
-Ambiguous and unmatched reference observations are excluded and counted
-separately. References are loaded only for server-side evaluation. Successful
-requests appear in the Uvicorn terminal. Internet access is required for map assets.
+The development demo uses the ten **student-test** trips (not the reserved
+evaluator trips). The scorer selector offers the **distance development
+baseline**, **Logistic Regression**, and **KNN**. The two trained options read
+`experiments/baselines/logistic_regression_student_scores.parquet` and
+`experiments/baselines/knn_student_scores.parquet`, produced by Person 2's
+baseline experiments on the main branch. These score files must exist locally
+before you select the trained options. The distance option still works without
+them. The PR branch may not contain the score files until merged with main.
 
-To plug in a classifier, update `pathsnap.scoring.score_candidates(rows)` to
-return the scorer's display name and one match probability in `[0, 1]` per
-candidate row, preserving row order. The API passes the candidate features and
-keys from the export to this function.
+The score loader validates each `(split, trip_id, obs_id, arc_id)` key, the
+selected trip and partition, uniqueness, completeness and finite probabilities
+in `[0, 1]`. It joins by the complete candidate key, **never by Parquet row
+position**. On a missing, duplicate, extra, or invalid score the API returns
+a clear error rather than silently substituting distances.
+
+The API uses exactly the **same candidate probabilities** for independent
+top-1 predictions and for Viterbi decoding. The Folium map overlays decoded
+arcs in pink. The UI compares both methods' accuracy on aligned student-test
+observations; candidate misses count against both. Ambiguous and unmatched
+reference observations are excluded and counted separately. Ground-truth
+labels are loaded server-side only for metrics, not for scoring, decoding or
+UI responses. Successful requests appear in the Uvicorn terminal. Internet
+access is required for map assets.
+
+A direct API request may supply `{"trip_id":"00000052","model":"knn"}`
+(or `"logistic_regression"` or `"distance"`). The /trips endpoint lists
+available model names. The trained-score files are development artifacts:
+the **final evaluator deployment** needs a server-side trained-model inference
+path on evaluator-trip candidates, not student-test precomputed predictions.
+
+Run the keyed-scoring regression tests:
+
+```sh
+python -m unittest discover -s tests -v
+```
+
+**Outstanding Person 3 deliverables:** run trained-score top-1 versus Viterbi
+comparisons over all student-test trips, record actual results and route
+continuity/failure analysis, justify transition/gap parameters, finalize
+report sections 5–7, and verify a two-laptop evaluation deployment using the
+reserved trips without exposing ground truth to the model or UI. No claim of
+Viterbi improvement is made until the experiments are run.
 
 ## Reference labels for training and evaluation
 
