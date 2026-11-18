@@ -9,7 +9,7 @@ The additional pinned environment is verified on macOS with Python 3.11. From th
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements/requirements.txt
 python -m ipykernel install --user --name pathsnap --display-name "Python (PathSnap)"
 python -m notebook
 ```
@@ -18,16 +18,16 @@ Open
 `notebooks/gps_preprocessing.ipynb`, select **Python (PathSnap)** and run the
 cells in order. Map tiles require internet access.
 
-`requirements.in` includes the existing `requirements-preprocessing.txt`
-versions and adds the Jupyter interface. `requirements.txt` pins the resolved dependencies for the Python
-3.11 macOS environment. On other platforms, resolve `requirements.in` in a
+`requirements/requirements.in` includes the existing `requirements/requirements-preprocessing.txt`
+versions and adds the Jupyter interface. `requirements/requirements.txt` pins the resolved dependencies for the Python
+3.11 macOS environment. On other platforms, resolve `requirements/requirements.in` in a
 fresh environment to account for platform-specific Jupyter dependencies. Model-training and API packages will be added when those
 components exist.
 
 
 ## Reproduce the preprocessing
 
-1. Install the dependencies with `python -m pip install -r requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
+1. Install the dependencies with `python -m pip install -r requirements/requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
 2. Use the supplied development archive at `data/raw/Student folder.zip` without extracting it. It contains the training and student-test partitions. To use an archive stored elsewhere, set `PATHSNAP_DATA_ZIP` to its full path.
 3. Open `notebooks/gps_preprocessing.ipynb` from the project root or the `notebooks/` directory and run all cells. The notebook regenerates the files in `data/processed/`, including a local Folium HTML map. Map tiles need internet access.
 
@@ -106,8 +106,8 @@ Generated viewer files stay under the existing ignored `data/` output paths.
 With uv installed, resolve and install changes in a Python 3.11 environment:
 
 ```bash
-uv pip compile requirements.in --python .venv/bin/python --output-file requirements.txt
-uv pip sync requirements.txt --python .venv/bin/python
+uv pip compile requirements/requirements.in --python .venv/bin/python --output-file requirements/requirements.txt
+uv pip sync requirements/requirements.txt --python .venv/bin/python
 uv pip check --python .venv/bin/python
 ```
 
@@ -129,7 +129,7 @@ Use the processed observations table for timestamps, order, and GPS gap flags. A
 To reproduce, run the preprocessing notebook, then install the candidate export dependency in the same environment and run:
 
 ```sh
-python -m pip install -r requirements-candidates.txt
+python -m pip install -r requirements/requirements-candidates.txt
 python scripts/generate_candidates.py
 ```
 
@@ -141,7 +141,7 @@ On Laptop 1, place the supplied ZIP at `data/raw/Student folder.zip` or
 set `PATHSNAP_DATA_ZIP`. With the preprocessing dependencies installed:
 
 ```bash
-python -m pip install -r requirements-demo.txt
+python -m pip install -r requirements/requirements-demo.txt
 python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
 ```
 
@@ -245,7 +245,7 @@ python scripts/generate_reference_labels.py
 After generating candidates and reference labels, run from the repository root:
 
 ```sh
-python -m pip install -r requirements-baselines.txt
+python -m pip install -r requirements/requirements-baselines.txt
 python scripts/train_baselines.py
 python scripts/visualize_baselines.py
 ```
