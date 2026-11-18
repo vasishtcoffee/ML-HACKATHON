@@ -4,4 +4,3 @@ scipy==1.16.2
 matplotlib==3.10.7
 folium==1.0.0
 ipykernel==7.4.0
-pyarrow==22.0.0

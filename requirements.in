@@ -1,0 +1,4 @@
+# Preserve the versions used for the exported preprocessing results.
+-r requirements-preprocessing.txt
+ipython
+notebook

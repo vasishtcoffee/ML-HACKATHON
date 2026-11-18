@@ -2,6 +2,29 @@
 
 GPS track exploration and preprocessing for the ML hackathon.
 
+## Setup
+
+The additional pinned environment is verified on macOS with Python 3.11. From the repository root:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m ipykernel install --user --name pathsnap --display-name "Python (PathSnap)"
+python -m notebook
+```
+
+Open
+`notebooks/gps_preprocessing.ipynb`, select **Python (PathSnap)** and run the
+cells in order. Map tiles require internet access.
+
+`requirements.in` includes the existing `requirements-preprocessing.txt`
+versions and adds the Jupyter interface. `requirements.txt` pins the resolved dependencies for the Python
+3.11 macOS environment. On other platforms, resolve `requirements.in` in a
+fresh environment to account for platform-specific Jupyter dependencies. Model-training and API packages will be added when those
+components exist.
+
+
 ## Reproduce the preprocessing
 
 1. Install the dependencies with `python -m pip install -r requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
@@ -40,6 +63,18 @@ Keep `trip_id` as a string to preserve leading zeros. Empty motion values mean t
 
 Implementation and verification were assisted by Codex.
 
+## Updating dependencies
+
+With uv installed, resolve and install changes in a Python 3.11 environment:
+
+```bash
+uv pip compile requirements.in --python .venv/bin/python --output-file requirements.txt
+uv pip sync requirements.txt --python .venv/bin/python
+uv pip check --python .venv/bin/python
+```
+
+Review the dependency diff and rerun the notebook before committing an update.
+
 ## Road-arc candidates
 
 `data/processed/candidates_train.parquet` and `data/processed/candidates_student_test.parquet` contain one row per GPS observation and nearby directed arc. The default search includes every arc whose straight segment is within 50 metres of the GPS point in a trip-local metric projection. The radius is an initial development setting and can be changed with `--radius-m`. The generator uses only the GPS coordinates and graph.
@@ -53,9 +88,10 @@ Implementation and verification were assisted by Codex.
 
 Use the processed observations table for timestamps, order, and GPS gap flags. An observation with no arc within the radius has no candidate rows. Preserve it with a left join on `split`, `trip_id`, and `obs_id`. The per-trip counts are in `data/processed/candidate_coverage.csv`. Coverage measures whether any candidate exists, and reference-arc recall requires separate label alignment.
 
-To reproduce, install the preprocessing dependencies, run the preprocessing notebook, then run:
+To reproduce, run the preprocessing notebook, then install the candidate export dependency in the same environment and run:
 
 ```sh
+python -m pip install -r requirements-candidates.txt
 python scripts/generate_candidates.py
 ```
 
