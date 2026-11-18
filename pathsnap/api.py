@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from pathsnap.decoder import Candidate, Observation, decode
 from pathsnap.evaluation import evaluate
-from pathsnap.scoring import score_candidates
+from pathsnap.scoring import DISPLAY_NAMES, score_candidates
 from pathsnap.routing import Position, RoadGraph
 from scripts.view_trip import load_trip, render_trip
 
@@ -34,6 +34,7 @@ app.add_middleware(
 
 class PredictionRequest(BaseModel):
     trip_id: str
+    model: str = "distance"
 
 
 def trip_ids():
@@ -43,7 +44,7 @@ def trip_ids():
 
 @app.get("/trips")
 def list_trips():
-    return {"trip_ids": trip_ids()}
+    return {"trip_ids": trip_ids(), "models": DISPLAY_NAMES}
 
 
 @app.post("/predict")
@@ -51,7 +52,9 @@ def predict(request: PredictionRequest):
     trip_id = request.trip_id
     if trip_id not in trip_ids():
         raise HTTPException(404, "Unknown student-test trip")
-    logger.info("Decoding development trip %s", trip_id)
+    if request.model not in DISPLAY_NAMES:
+        raise HTTPException(422, "Unknown scoring model")
+    logger.info("Decoding development trip %s with %s", trip_id, request.model)
     start = perf_counter()
 
     try:
@@ -64,7 +67,11 @@ def predict(request: PredictionRequest):
         logger.exception("Could not load inputs for trip %s", trip_id)
         raise HTTPException(503, "Trip data could not be loaded. Check the server setup.")
 
-    score_name, scores = score_candidates(rows)
+    try:
+        score_name, scores = score_candidates(rows, model=request.model, trip_id=trip_id)
+    except (ValueError, FileNotFoundError, OSError) as exc:
+        logger.exception("Invalid or unavailable candidate score export for %s", trip_id)
+        raise HTTPException(503, "Candidate score export unavailable or invalid: " + str(exc)) from exc
     scores = np.asarray(scores, dtype=float)
     if scores.shape != (len(rows),) or not np.all((scores >= 0) & (scores <= 1)):
         raise HTTPException(500, "Scorer must return one finite score in [0, 1] per candidate")
@@ -99,6 +106,7 @@ def predict(request: PredictionRequest):
     return {
         "trip_id": trip_id,
         "scoring": score_name,
+        "scoring_model": request.model,
         "arcs_by_observation": result.arcs_by_observation,
         "route_segments": result.segments,
         "matched_observations": sum(arc is not None for arc in result.arcs_by_observation.values()),
