@@ -22,6 +22,10 @@ DATA = Path(__file__).resolve().parents[1] / "data"
 OBSERVATIONS = DATA / "processed/observations.csv.gz"
 ARCHIVE = Path(os.environ.get("PATHSNAP_DATA_ZIP", DATA / "raw/Student folder.zip")).expanduser()
 SPLIT = "student_test"
+# Per-trip bounded cache; 0 disables it to reproduce the uncached baseline.
+SHORTEST_CACHE_SIZE = int(os.environ.get("PATHSNAP_SHORTEST_CACHE_SIZE", "20000"))
+if SHORTEST_CACHE_SIZE < 0:
+    raise ValueError("PATHSNAP_SHORTEST_CACHE_SIZE must be nonnegative")
 logger = logging.getLogger("uvicorn.error")
 app = FastAPI(title="PathSnap development API")
 app.add_middleware(
@@ -67,6 +71,7 @@ def predict(request: PredictionRequest):
         logger.exception("Could not load inputs for trip %s", trip_id)
         raise HTTPException(503, "Trip data could not be loaded. Check the server setup.")
 
+    score_start = perf_counter()
     try:
         score_name, scores = score_candidates(rows, model=request.model, trip_id=trip_id)
     except (ValueError, FileNotFoundError, OSError) as exc:
@@ -76,6 +81,7 @@ def predict(request: PredictionRequest):
     if scores.shape != (len(rows),) or not np.all((scores >= 0) & (scores <= 1)):
         raise HTTPException(500, "Scorer must return one finite score in [0, 1] per candidate")
 
+    score_seconds = perf_counter() - score_start
     candidates = {}
     for row, score in zip(rows.itertuples(index=False), scores, strict=True):
         candidates.setdefault(row.obs_id, []).append(
@@ -86,8 +92,10 @@ def predict(request: PredictionRequest):
                     tuple(candidates.get(row.obs_id, ())))
         for row in track.itertuples(index=False)
     ]
-    result = decode(RoadGraph(nodes, arcs), observations)
-    runtime = round(perf_counter() - start, 3)
+    graph = RoadGraph(nodes, arcs, shortest_cache_size=SHORTEST_CACHE_SIZE)
+    decode_start = perf_counter()
+    result = decode(graph, observations)
+    decode_seconds = perf_counter() - decode_start
     try:
         labels = pq.read_table(
             DATA / "processed/reference_labels_student_test.parquet",
@@ -100,8 +108,15 @@ def predict(request: PredictionRequest):
     if not labels.obs_id.is_unique or set(labels.obs_id) != set(track.obs_id):
         raise HTTPException(503, "Evaluation labels do not match the trip observations.")
     evaluation = evaluate(labels, candidates, result.arcs_by_observation)
+    map_start = perf_counter()
     trip_map, _ = render_trip(track, nodes, arcs, SPLIT, trip_id,
                               route_segments=result.segments)
+    map_html = trip_map.get_root().render()
+    map_seconds = perf_counter() - map_start
+    runtime = round(perf_counter() - start, 3)
+    logger.info("Trip %s model=%s decoded in %.3fs (routing %.3fs, cache hits %d, map %.3fs)",
+                trip_id, request.model, decode_seconds, graph.route_seconds,
+                graph.shortest_cache_hits, map_seconds)
 
     return {
         "trip_id": trip_id,
@@ -112,7 +127,18 @@ def predict(request: PredictionRequest):
         "matched_observations": sum(arc is not None for arc in result.arcs_by_observation.values()),
         "observations": len(observations),
         "runtime_seconds": runtime,
+        "timings": {
+            "score_load_seconds": round(score_seconds, 4),
+            "decode_seconds": round(decode_seconds, 4),
+            "road_routing_seconds": round(graph.route_seconds, 4),
+            "dijkstra_seconds": round(graph.shortest_search_seconds, 4),
+            "map_render_seconds": round(map_seconds, 4),
+            "total_server_seconds": runtime,
+            "shortest_path_searches": graph.shortest_searches,
+            "shortest_cache_hits": graph.shortest_cache_hits,
+            "cache_size": SHORTEST_CACHE_SIZE,
+        },
         "accuracy": evaluation["viterbi_accuracy"],
         "evaluation": evaluation,
-        "map_html": trip_map.get_root().render(),
+        "map_html": map_html,
     }
