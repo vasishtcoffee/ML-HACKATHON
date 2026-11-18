@@ -22,7 +22,7 @@ def decode(emissions, transitions):
         return isfinite(value) or value == -inf
 
     for scores in emissions:
-        if not scores or not all(valid_score(value) for value in scores):
+        if len(scores) == 0 or not all(valid_score(value) for value in scores):
             raise ValueError("Each observation needs candidates with finite or -inf scores.")
     for t, matrix in enumerate(transitions):
         if len(matrix) != len(emissions[t]) or any(
