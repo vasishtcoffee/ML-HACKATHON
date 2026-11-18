@@ -1,0 +1,2 @@
+-r requirements-xgboost.txt
+optuna==5.1.0
