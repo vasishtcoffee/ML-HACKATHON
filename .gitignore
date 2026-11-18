@@ -9,3 +9,6 @@ data/processed/*
 !data/processed/sampling.png
 .ipynb_checkpoints/
 __pycache__/
+!data/processed/candidates_train.parquet
+!data/processed/candidates_student_test.parquet
+!data/processed/candidate_coverage.csv
