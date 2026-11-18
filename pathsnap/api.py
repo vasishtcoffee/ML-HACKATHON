@@ -79,7 +79,7 @@ def predict(request: PredictionRequest):
     candidates = {}
     for row, score in zip(rows.itertuples(index=False), scores, strict=True):
         candidates.setdefault(row.obs_id, []).append(
-            Candidate(Position(row.arc_id, row.fraction_along_arc), score)
+            Candidate(Position(row.arc_id, row.fraction_along_arc), score, int(row.candidate_rank))
         )
     observations = [
         Observation(row.obs_id, row.timestamp_s, (row.longitude, row.latitude),
