@@ -28,3 +28,34 @@ The backend will calculate evaluation metrics using reference data kept on the
 server. Return predictions, metrics and failure counts to the UI, not reference
 labels. Final route comparisons and report results must use real trips; synthetic
 checks are development evidence only. No decoder, API or UI is implemented yet.
+
+## Progress and remaining deliverables (Person 3)
+
+Implemented in this development branch:
+- Directed shortest-path routing, Viterbi decoding, GPS-gap and unreachable-transition handling.
+- FastAPI trip selection/predictions, server-side student-test reference evaluation, and Folium UI.
+- Configurable distance, Logistic Regression and KNN probability scoring. The two trained
+  options read Person 2's committed student-test score exports once those main-branch
+  artifacts are present. Each candidate is joined by `(split, trip_id, obs_id, arc_id)`,
+  with duplicate, missing, extra, and invalid scores rejected.
+- One keyed score array feeds both independent top-1 and Viterbi comparisons.
+- Unit tests for keyed score alignment, invalid scores and score-file mismatches.
+
+The current API / UI is a **development** demo, not the final evaluation setup.
+It does not yet demonstrate that Viterbi improves trained-classifier accuracy.
+Do not claim such improvements without recording actual results.
+
+Remaining Person 3 tasks:
+1. Run the two trained classifiers through decoding across all ten student-test trips;
+   record per-trip and aggregate top-1 and Viterbi accuracy, coverage, route
+   continuity, failure/gap statistics and inference times. Report regressions too.
+2. Verify model selection and Viterbi transition/gap parameters from permitted
+   development data; protect the reserved evaluator split.
+3. Add final server-side classifier inference for evaluator-trip candidates;
+   precomputed student-test scores cannot be used for these reserved trips.
+4. Demonstrate UI on Laptop 2 communicating with Laptop 1's model/API for all
+   evaluator trips; keep references server-side, with no hardcoded predictions.
+5. Write report sections 5 (HMM/Viterbi), 6 (Folium) and 7 (API/UI/deployment)
+   using the team's actual experimental evidence and screenshots.
+
+Run score-loader tests: `python -m unittest discover -s tests -v`.
