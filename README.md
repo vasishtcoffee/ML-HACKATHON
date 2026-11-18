@@ -28,7 +28,7 @@ components exist.
 ## Reproduce the preprocessing
 
 1. Install the dependencies with `python -m pip install -r requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
-2. Copy the supplied archive to `data/raw/Student folder.zip` without extracting it. This is the same relative path on every teammate's checkout. For another location, set `PATHSNAP_DATA_ZIP` to the full path.
+2. Use the supplied development archive at `data/raw/Student folder.zip` without extracting it. It contains the training and student-test partitions. To use an archive stored elsewhere, set `PATHSNAP_DATA_ZIP` to its full path.
 3. Open `notebooks/gps_preprocessing.ipynb` from the project root or the `notebooks/` directory and run all cells. The notebook regenerates the files in `data/processed/`, including a local Folium HTML map. Map tiles need internet access.
 
 ## Processed data
@@ -68,7 +68,7 @@ Implementation and verification were assisted by Codex.
 The standalone viewer uses the committed processed observations and the original
 ZIP's road network. It does not read `.route` labels or require a classifier.
 Run these commands from the repository root after installing the existing
-dependencies and placing the ZIP at `data/raw/Student folder.zip`:
+dependencies. The viewer uses the ZIP at `data/raw/Student folder.zip` by default:
 
 ```bash
 python scripts/view_trip.py --list-trips
