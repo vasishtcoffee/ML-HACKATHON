@@ -53,7 +53,7 @@
       const data = await request('/trips');
       for (const id of data.trip_ids) trips.add(new Option(id, id));
       for (const [id, label] of Object.entries(data.models)) model.add(new Option(label, id));
-      if (data.models.knn) model.value = "knn";
+      model.value = "distance"; // Guaranteed development fallback when trained exports are absent.
       status.textContent = data.trip_ids.length ? 'Select a trip to decode.' : 'No trips available.';
       trips.disabled = model.disabled = decode.disabled = !data.trip_ids.length;
     } catch (error) {
