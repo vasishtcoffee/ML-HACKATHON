@@ -67,9 +67,14 @@
       });
       map.srcdoc = data.map_html;
       map.hidden = false;
-      status.textContent = 'Distance baseline · ' + data.matched_observations + '/' +
+      const e = data.evaluation;
+      const percent = value => value == null ? 'Unavailable' : (100 * value).toFixed(1) + '%';
+      status.textContent = data.scoring + ' · ' + data.matched_observations + '/' +
         data.observations + ' observations matched · ' + data.route_segments.length +
-        ' route segments · ' + data.runtime_seconds + ' s · Accuracy: Not evaluated';
+        ' route segments · ' + data.runtime_seconds + ' s · Top-1: ' + percent(e.top1_accuracy) +
+        ' · Viterbi: ' + percent(e.viterbi_accuracy) + ' · ' + e.aligned +
+        ' aligned, including ' + e.candidate_misses + ' candidate misses. Excluded ' +
+        e.ambiguous_excluded + ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.';
     } catch (error) {
       status.textContent = 'Decoding failed. ' + error.message;
     } finally { connect.disabled = trips.disabled = decode.disabled = false; }

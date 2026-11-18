@@ -2,10 +2,10 @@
 
 import logging
 import os
-from math import exp
 from pathlib import Path
 from time import perf_counter
 
+import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 from fastapi import FastAPI, HTTPException
@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from pathsnap.decoder import Candidate, Observation, decode
+from pathsnap.evaluation import evaluate
+from pathsnap.scoring import score_candidates
 from pathsnap.routing import Position, RoadGraph
 from scripts.view_trip import load_trip, render_trip
 
@@ -57,16 +59,18 @@ def predict(request: PredictionRequest):
         rows = pq.read_table(
             DATA / "processed/candidates_student_test.parquet",
             filters=[("trip_id", "=", trip_id)],
-            columns=["obs_id", "arc_id", "fraction_along_arc", "distance_to_arc_m"],
         ).to_pandas()
     except (OSError, ValueError):
         logger.exception("Could not load inputs for trip %s", trip_id)
         raise HTTPException(503, "Trip data could not be loaded. Check the server setup.")
 
+    score_name, scores = score_candidates(rows)
+    scores = np.asarray(scores, dtype=float)
+    if scores.shape != (len(rows),) or not np.all((scores >= 0) & (scores <= 1)):
+        raise HTTPException(500, "Scorer must return one finite score in [0, 1] per candidate")
+
     candidates = {}
-    for row in rows.itertuples(index=False):
-        # Replace this development score with the classifier probability at integration.
-        score = exp(-0.5 * (row.distance_to_arc_m / 20.0) ** 2)
+    for row, score in zip(rows.itertuples(index=False), scores, strict=True):
         candidates.setdefault(row.obs_id, []).append(
             Candidate(Position(row.arc_id, row.fraction_along_arc), score)
         )
@@ -77,17 +81,30 @@ def predict(request: PredictionRequest):
     ]
     result = decode(RoadGraph(nodes, arcs), observations)
     runtime = round(perf_counter() - start, 3)
+    try:
+        labels = pq.read_table(
+            DATA / "processed/reference_labels_student_test.parquet",
+            filters=[("trip_id", "=", trip_id)],
+            columns=["obs_id", "alignment_status", "reference_arc_id"],
+        ).to_pandas()
+    except (OSError, ValueError):
+        logger.exception("Could not load evaluation labels for trip %s", trip_id)
+        raise HTTPException(503, "Evaluation labels could not be loaded.")
+    if not labels.obs_id.is_unique or set(labels.obs_id) != set(track.obs_id):
+        raise HTTPException(503, "Evaluation labels do not match the trip observations.")
+    evaluation = evaluate(labels, candidates, result.arcs_by_observation)
     trip_map, _ = render_trip(track, nodes, arcs, SPLIT, trip_id,
                               route_segments=result.segments)
 
     return {
         "trip_id": trip_id,
-        "scoring": "distance_baseline",
+        "scoring": score_name,
         "arcs_by_observation": result.arcs_by_observation,
         "route_segments": result.segments,
         "matched_observations": sum(arc is not None for arc in result.arcs_by_observation.values()),
         "observations": len(observations),
         "runtime_seconds": runtime,
-        "accuracy": None,
+        "accuracy": evaluation["viterbi_accuracy"],
+        "evaluation": evaluation,
         "map_html": trip_map.get_root().render(),
     }

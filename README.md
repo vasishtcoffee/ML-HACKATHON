@@ -160,9 +160,16 @@ origin before starting the API.
 
 The development demo uses the ten student-test trips and scores their exported
 candidates by distance before Viterbi. The map displays the decoded arcs in
-pink. Accuracy is shown as unavailable until classifier integration and
-server-side evaluation are implemented. Successful requests appear in the
-Uvicorn terminal. Internet access is required for the map assets.
+pink. The UI compares top-1 candidate accuracy with Viterbi accuracy on aligned
+student-test observations. Candidate misses count against both methods.
+Ambiguous and unmatched reference observations are excluded and counted
+separately. References are loaded only for server-side evaluation. Successful
+requests appear in the Uvicorn terminal. Internet access is required for map assets.
+
+To plug in a classifier, update `pathsnap.scoring.score_candidates(rows)` to
+return the scorer's display name and one match probability in `[0, 1]` per
+candidate row, preserving row order. The API passes the candidate features and
+keys from the export to this function.
 
 ## Reference labels for training and evaluation
 

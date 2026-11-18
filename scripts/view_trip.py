@@ -97,7 +97,7 @@ def render_trip(track, nodes, arcs, split, trip_id, *, route_segments=None):
                       icon=folium.Icon(color=color, icon="info-sign")).add_to(endpoints)
     endpoints.add_to(trip_map)
     if route_segments is not None:
-        decoded_layer = folium.FeatureGroup(name="Decoded route (distance baseline)")
+        decoded_layer = folium.FeatureGroup(name="Decoded route")
         decoded_lines = [
             [starts[arc_id].tolist(), ends[arc_id].tolist()]
             for segment in route_segments for arc_id in segment
@@ -114,7 +114,7 @@ def render_trip(track, nodes, arcs, split, trip_id, *, route_segments=None):
                "gaps_over_5s": int(dt.gt(5).sum()),
                "duration_seconds": float(track.timestamp_s.iloc[-1] - track.timestamp_s.iloc[0])}
     title = html.escape(f"{split} / {trip_id}")
-    mode = ("Development prediction · Distance baseline"
+    mode = ("Development prediction"
             if route_segments is not None else "Exploration only · No model predictions.")
     panel = f"""
     <style>
