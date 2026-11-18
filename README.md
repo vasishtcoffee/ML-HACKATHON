@@ -322,3 +322,17 @@ python scripts/visualize_classifier_tuning.py
 
 The [classifier tuning report](experiments/classifier_tuning/README.md) links the
 trial logs, selected settings, baseline comparisons, and scores for Viterbi.
+
+## Direction and motion feature experiment
+
+Use the same three training-trip folds as the Bayesian tuning run:
+
+```sh
+python -m pip install -r requirements/requirements-classifier-tuning.txt
+python scripts/train_motion_models.py
+python scripts/benchmark_motion_decoding.py
+python scripts/visualize_motion_models.py
+```
+
+The [direction and motion report](experiments/motion_features/README.md) includes
+the feature comparison, selected classifiers, and matched Viterbi results.
