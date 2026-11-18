@@ -2,6 +2,29 @@
 
 GPS track exploration and preprocessing for the ML hackathon.
 
+## Setup
+
+The additional pinned environment is verified on macOS with Python 3.11. From the repository root:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m ipykernel install --user --name pathsnap --display-name "Python (PathSnap)"
+python -m notebook
+```
+
+Open
+`notebooks/gps_preprocessing.ipynb`, select **Python (PathSnap)** and run the
+cells in order. Map tiles require internet access.
+
+`requirements.in` includes the existing `requirements-preprocessing.txt`
+versions and adds the Jupyter interface. `requirements.txt` pins the resolved dependencies for the Python
+3.11 macOS environment. On other platforms, resolve `requirements.in` in a
+fresh environment to account for platform-specific Jupyter dependencies. Model-training and API packages will be added when those
+components exist.
+
+
 ## Reproduce the preprocessing
 
 1. Install the dependencies with `python -m pip install -r requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
@@ -39,3 +62,15 @@ Keep `trip_id` as a string to preserve leading zeros. Empty motion values mean t
 - Preserve these partitions for the next phase. Cross-validation and learned preprocessing should use trip-grouped training folds. Evaluator trips are reserved for final evaluation.
 
 Implementation and verification were assisted by Codex.
+
+## Updating dependencies
+
+With uv installed, resolve and install changes in a Python 3.11 environment:
+
+```bash
+uv pip compile requirements.in --python .venv/bin/python --output-file requirements.txt
+uv pip sync requirements.txt --python .venv/bin/python
+uv pip check --python .venv/bin/python
+```
+
+Review the dependency diff and rerun the notebook before committing an update.
