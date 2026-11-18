@@ -1,5 +1,6 @@
 """Tune candidate ranking using only training-trip cross-validation."""
 import json
+from importlib.metadata import version
 from pathlib import Path
 import optuna
 import numpy as np
@@ -15,10 +16,23 @@ def tune(name, trials=6):
     output = ROOT / "experiments" / (name + "_tuned")
     output.mkdir(parents=True, exist_ok=True)
     original = MODELS[name].copy()
+    pd.DataFrame([
+        {"trip_id": trip, "validation_fold": i}
+        for i, (_, val) in enumerate(folds, 1)
+        for trip in sorted(set(timeline.iloc[val].trip_id))
+    ]).to_csv(output / "search_folds.csv", index=False)
+    (output / "search_protocol.json").write_text(json.dumps({
+        "seed": 42, "search_folds": 3, "trials_requested": trials,
+        "objective": "mean fold observation top1 on aligned training trips",
+        "student_test_used_for_selection": False,
+        "optuna_version": version("optuna"),
+        "baseline_parameters": original,
+        "validation_note": "Five-fold refit evaluation is not nested CV."
+    }, indent=2))
     def objective(trial):
         params = original.copy()
         if name == "random_forest":
-            params.update(n_estimators=60,
+            params.update(n_estimators=original["n_estimators"],
                 max_depth=trial.suggest_int("max_depth", 8, 24, step=4),
                 min_samples_leaf=trial.suggest_int("min_samples_leaf", 5, 80, log=True),
                 max_features=trial.suggest_categorical("max_features", ["sqrt", 1.0]),
