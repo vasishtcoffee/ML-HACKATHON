@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PathSnap</title>
+<style>
+  body { margin: 0; font: 16px system-ui, sans-serif; color: #17243a; background: #f4f6fa; }
+  main { max-width: 1200px; margin: auto; padding: 20px; }
+  h1 { margin: 0 0 14px; }
+  form, .server { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+  label { display: grid; gap: 4px; }
+  input, select, button { font: inherit; padding: 8px; border: 1px solid #64748b; border-radius: 6px; }
+  button { color: white; background: #1d4ed8; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: default; }
+  iframe { width: 100%; height: 68vh; border: 1px solid #94a3b8; border-radius: 8px; }
+</style>
+<main>
+  <h1>PathSnap</h1>
+  <div class="server">
+    <label>Backend address <input id="backend" type="url" value="http://localhost:8000"></label>
+    <button id="connect">Connect</button>
+  </div>
+  <form id="run">
+    <label>Student-test trip <select id="trips" disabled></select></label>
+    <button id="decode" disabled>Decode route</button>
+  </form>
+  <p id="status" role="status" aria-live="polite">Connect to the backend to list trips.</p>
+  <iframe id="map" title="PathSnap trip map" sandbox="allow-scripts" hidden></iframe>
+</main>
+<script>
+  const backend = document.querySelector('#backend');
+  const connect = document.querySelector('#connect');
+  const trips = document.querySelector('#trips');
+  const decode = document.querySelector('#decode');
+  const status = document.querySelector('#status');
+  const map = document.querySelector('#map');
+  let api;
+  async function request(path, options) {
+    const response = await fetch(new URL(path, api), options);
+    if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
+    return response.json();
+  }
+  connect.onclick = async () => {
+    connect.disabled = trips.disabled = decode.disabled = true;
+    map.hidden = true;
+    trips.replaceChildren();
+    status.textContent = 'Connecting…';
+    try {
+      api = new URL(backend.value);
+      const data = await request('/trips');
+      for (const id of data.trip_ids) trips.add(new Option(id, id));
+      status.textContent = data.trip_ids.length ? 'Select a trip to decode.' : 'No trips available.';
+      trips.disabled = decode.disabled = !data.trip_ids.length;
+    } catch (error) {
+      status.textContent = 'Connection failed. Check the backend address and allowed UI origin. ' + error.message;
+    } finally { connect.disabled = false; }
+  };
+  document.querySelector('#run').onsubmit = async (event) => {
+    event.preventDefault();
+    connect.disabled = trips.disabled = decode.disabled = true;
+    map.hidden = true;
+    status.textContent = 'Decoding trip ' + trips.value + '…';
+    try {
+      const data = await request('/predict', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({trip_id: trips.value})
+      });
+      map.srcdoc = data.map_html;
+      map.hidden = false;
+      status.textContent = 'Distance baseline · ' + data.matched_observations + '/' +
+        data.observations + ' observations matched · ' + data.route_segments.length +
+        ' route segments · ' + data.runtime_seconds + ' s · Accuracy: Not evaluated';
+    } catch (error) {
+      status.textContent = 'Decoding failed. ' + error.message;
+    } finally { connect.disabled = trips.disabled = decode.disabled = false; }
+  };
+</script>
+</html>

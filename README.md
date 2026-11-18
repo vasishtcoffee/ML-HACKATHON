@@ -134,3 +134,32 @@ python scripts/generate_candidates.py
 ```
 
 Load either table with `pandas.read_parquet()`. Parquet preserves the leading zeros in `trip_id`.
+
+## Run the development demo
+
+On Laptop 1, place the supplied ZIP at `data/raw/Student folder.zip` or
+set `PATHSNAP_DATA_ZIP`. With the preprocessing dependencies installed:
+
+```bash
+python -m pip install -r requirements-demo.txt
+python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
+```
+
+On Laptop 2, from the repository root:
+
+```bash
+python -m http.server 8001 --bind 127.0.0.1 --directory ui
+```
+
+Open `http://localhost:8001`, enter Laptop 1's LAN URL
+(e.g. `http://192.168.1.10:8000`), click **Connect**, and choose a trip.
+Both laptops must be on a network that permits the connection to port 8000.
+For a one-laptop test, use `http://localhost:8000`. If you serve the UI
+from a different origin, set `PATHSNAP_UI_ORIGIN` on Laptop 1 to that exact
+origin before starting the API.
+
+The development demo uses the ten student-test trips and scores their exported
+candidates by distance before Viterbi. The map displays the decoded arcs in
+pink. Accuracy is shown as unavailable until classifier integration and
+server-side evaluation are implemented. Successful requests appear in the
+Uvicorn terminal. Internet access is required for the map assets.
