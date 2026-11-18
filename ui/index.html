@@ -22,6 +22,7 @@
   </div>
   <form id="run">
     <label>Student-test trip <select id="trips" disabled></select></label>
+    <label>Candidate scorer <select id="model" disabled></select></label>
     <button id="decode" disabled>Decode route</button>
   </form>
   <p id="status" role="status" aria-live="polite">Connect to the backend to list trips.</p>
@@ -32,6 +33,7 @@
   const connect = document.querySelector('#connect');
   const trips = document.querySelector('#trips');
   const decode = document.querySelector('#decode');
+  const model = document.querySelector('#model');
   const status = document.querySelector('#status');
   const map = document.querySelector('#map');
   let api;
@@ -41,16 +43,19 @@
     return response.json();
   }
   connect.onclick = async () => {
-    connect.disabled = trips.disabled = decode.disabled = true;
+    connect.disabled = trips.disabled = model.disabled = decode.disabled = true;
     map.hidden = true;
     trips.replaceChildren();
+    model.replaceChildren();
     status.textContent = 'Connecting…';
     try {
       api = new URL(backend.value);
       const data = await request('/trips');
       for (const id of data.trip_ids) trips.add(new Option(id, id));
+      for (const [id, label] of Object.entries(data.models)) model.add(new Option(label, id));
+      if (data.models.knn) model.value = "knn";
       status.textContent = data.trip_ids.length ? 'Select a trip to decode.' : 'No trips available.';
-      trips.disabled = decode.disabled = !data.trip_ids.length;
+      trips.disabled = model.disabled = decode.disabled = !data.trip_ids.length;
     } catch (error) {
       status.textContent = 'Connection failed. Check the backend address and allowed UI origin. ' + error.message;
     } finally { connect.disabled = false; }
@@ -63,7 +68,7 @@
     try {
       const data = await request('/predict', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({trip_id: trips.value})
+        body: JSON.stringify({trip_id: trips.value, model: model.value})
       });
       map.srcdoc = data.map_html;
       map.hidden = false;
@@ -77,7 +82,7 @@
         e.ambiguous_excluded + ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.';
     } catch (error) {
       status.textContent = 'Decoding failed. ' + error.message;
-    } finally { connect.disabled = trips.disabled = decode.disabled = false; }
+    } finally { connect.disabled = trips.disabled = model.disabled = decode.disabled = false; }
   };
 </script>
 </html>
