@@ -7,6 +7,9 @@ data/processed/*
 !data/processed/split_summary.csv
 !data/processed/archive_inventory.csv
 !data/processed/sampling.png
+!data/processed/candidates_train.parquet
+!data/processed/candidates_student_test.parquet
+!data/processed/candidate_coverage.csv
 .ipynb_checkpoints/
 __pycache__/
 .venv/

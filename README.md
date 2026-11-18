@@ -74,3 +74,25 @@ uv pip check --python .venv/bin/python
 ```
 
 Review the dependency diff and rerun the notebook before committing an update.
+
+## Road-arc candidates
+
+`data/processed/candidates_train.parquet` and `data/processed/candidates_student_test.parquet` contain one row per GPS observation and nearby directed arc. The default search includes every arc whose straight segment is within 50 metres of the GPS point in a trip-local metric projection. The radius is an initial development setting and can be changed with `--radius-m`. The generator uses only the GPS coordinates and graph.
+
+| Columns | Meaning |
+|---|---|
+| `split`, `trip_id`, `obs_id`, `arc_id` | Join key for classifier scores. Arc IDs are zero-based rows within each trip's original arc file. |
+| `candidate_rank`, `distance_to_arc_m` | One-based rank within the observation and perpendicular or endpoint-clamped distance to the arc. Ties use arc ID. |
+| `fraction_along_arc`, `offset_from_arc_start_m` | Position along the directed arc from its source node (0) to its destination node (1). Offset is the fraction times the arc's haversine endpoint length. |
+| `projected_longitude`, `projected_latitude` | Closest point on the straight arc segment, in degrees. |
+
+Use the processed observations table for timestamps, order, and GPS gap flags. An observation with no arc within the radius has no candidate rows. Preserve it with a left join on `split`, `trip_id`, and `obs_id`. The per-trip counts are in `data/processed/candidate_coverage.csv`. Coverage measures whether any candidate exists, and reference-arc recall requires separate label alignment.
+
+To reproduce, run the preprocessing notebook, then install the candidate export dependency in the same environment and run:
+
+```sh
+python -m pip install -r requirements-candidates.txt
+python scripts/generate_candidates.py
+```
+
+Load either table with `pandas.read_parquet()`. Parquet preserves the leading zeros in `trip_id`.
