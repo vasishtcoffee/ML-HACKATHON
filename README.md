@@ -135,6 +135,72 @@ python scripts/generate_candidates.py
 
 Load either table with `pandas.read_parquet()`. Parquet preserves the leading zeros in `trip_id`.
 
+## Run the development demo
+
+On Laptop 1, place the supplied ZIP at `data/raw/Student folder.zip` or
+set `PATHSNAP_DATA_ZIP`. With the preprocessing dependencies installed:
+
+```bash
+python -m pip install -r requirements-demo.txt
+python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
+```
+
+On Laptop 2, from the repository root:
+
+```bash
+python -m http.server 8001 --bind 127.0.0.1 --directory ui
+```
+
+Open `http://localhost:8001`, enter Laptop 1's LAN URL
+(e.g. `http://192.168.1.10:8000`), click **Connect**, and choose a trip.
+Both laptops must be on a network that permits the connection to port 8000.
+For a one-laptop test, use `http://localhost:8000`. If you serve the UI
+from a different origin, set `PATHSNAP_UI_ORIGIN` on Laptop 1 to that exact
+origin before starting the API.
+
+The development demo uses the ten **student-test** trips (not the reserved
+evaluator trips). The scorer selector offers the **distance development
+baseline**, **Logistic Regression**, and **KNN**. The two trained options read
+`experiments/baselines/logistic_regression_student_scores.parquet` and
+`experiments/baselines/knn_student_scores.parquet`, produced by Person 2's
+baseline experiments on the main branch. These score files must exist locally
+before you select the trained options. The distance option still works without
+them. 
+
+The score loader validates each `(split, trip_id, obs_id, arc_id)` key, the
+selected trip and partition, uniqueness, completeness and finite probabilities
+in `[0, 1]`. It joins by the complete candidate key, **never by Parquet row
+position**. On a missing, duplicate, extra, or invalid score the API returns
+a clear error rather than silently substituting distances.
+
+The API uses exactly the **same candidate probabilities** for independent
+top-1 predictions and for Viterbi decoding. The Folium map overlays decoded
+arcs in pink. The UI compares both methods' accuracy on aligned student-test
+observations; candidate misses count against both. Ambiguous and unmatched
+reference observations are excluded and counted separately. Ground-truth
+labels are loaded server-side only for metrics, not for scoring, decoding or
+UI responses. Successful requests appear in the Uvicorn terminal. Internet
+access is required for map assets.
+
+A direct API request may supply `{"trip_id":"00000052","model":"knn"}`
+(or `"logistic_regression"` or `"distance"`). The /trips endpoint lists
+available model names. The trained-score files are development artifacts:
+the **final evaluator deployment** needs a server-side trained-model inference
+path on evaluator-trip candidates, not student-test precomputed predictions.
+
+Run the keyed-scoring regression tests:
+
+```sh
+python -m unittest discover -s tests -v
+```
+
+**Outstanding Person 3 deliverables:** run trained-score top-1 versus Viterbi
+comparisons over all student-test trips, record actual results and route
+continuity/failure analysis, justify transition/gap parameters, finalize
+report sections 5–7, and verify a two-laptop evaluation deployment using the
+reserved trips without exposing ground truth to the model or UI. No claim of
+Viterbi improvement is made until the experiments are run.
+
 ## Reference labels for training and evaluation
 
 The two `data/processed/reference_labels_*.parquet` files contain one row per

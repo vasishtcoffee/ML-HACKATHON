@@ -55,7 +55,7 @@ def load_trip(observations_path, archive_path, split, trip_id):
     return track, nodes, arcs
 
 
-def render_trip(track, nodes, arcs, split, trip_id):
+def render_trip(track, nodes, arcs, split, trip_id, *, route_segments=None):
     # File order is longitude/latitude. Folium locations use latitude/longitude.
     gps = track[["latitude", "longitude"]].to_numpy()
     latlon = nodes[:, ::-1]
@@ -96,6 +96,15 @@ def render_trip(track, nodes, arcs, split, trip_id):
         folium.Marker(point.tolist(), tooltip=label,
                       icon=folium.Icon(color=color, icon="info-sign")).add_to(endpoints)
     endpoints.add_to(trip_map)
+    if route_segments is not None:
+        decoded_layer = folium.FeatureGroup(name="Decoded route")
+        decoded_lines = [
+            [starts[arc_id].tolist(), ends[arc_id].tolist()]
+            for segment in route_segments for arc_id in segment
+        ]
+        if decoded_lines:
+            folium.PolyLine(decoded_lines, color="#be185d", weight=4).add_to(decoded_layer)
+        decoded_layer.add_to(trip_map)
     folium.LayerControl(collapsed=False, position="topright").add_to(trip_map)
     trip_map.fit_bounds([lo.tolist(), hi.tolist()], padding=(35, 35))
 
@@ -105,6 +114,8 @@ def render_trip(track, nodes, arcs, split, trip_id):
                "gaps_over_5s": int(dt.gt(5).sum()),
                "duration_seconds": float(track.timestamp_s.iloc[-1] - track.timestamp_s.iloc[0])}
     title = html.escape(f"{split} / {trip_id}")
+    mode = ("Development prediction"
+            if route_segments is not None else "Exploration only · No model predictions.")
     panel = f"""
     <style>
       .leaflet-container {{ background: #e9eef4; }}
@@ -125,7 +136,7 @@ def render_trip(track, nodes, arcs, split, trip_id):
       <div><span style="color:#2563eb">●</span> Recorded GPS observations</div>
       <div><span style="color:#64748b">━</span> Road segments</div>
       <div><span style="color:#d97706">○</span> After a gap &gt; 5 s ({summary['gaps_over_5s']})</div>
-      <div class="muted" style="margin-top:10px">Exploration only · No model predictions.<br>
+      <div class="muted" style="margin-top:10px">{mode}<br>
       GPS points are not joined across gaps.<br>Map tiles and libraries need internet access.</div>
     </aside>"""
     trip_map.get_root().html.add_child(folium.Element(panel))
