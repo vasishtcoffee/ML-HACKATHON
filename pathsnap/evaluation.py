@@ -12,7 +12,7 @@ def evaluate(labels, candidates, decoded):
         if not any(option.position.arc_id == row.reference_arc_id for option in options):
             misses += 1
             continue
-        best = max(options, key=lambda c: (c.probability, -c.position.arc_id))
+        best = max(options, key=lambda c: (c.probability, -c.candidate_rank, -c.position.arc_id))
         top1_correct += int(best.position.arc_id == row.reference_arc_id)
         viterbi_correct += int(decoded.get(row.obs_id) == row.reference_arc_id)
     total = len(aligned)
