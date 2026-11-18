@@ -40,6 +40,10 @@ Implemented in this development branch:
   with duplicate, missing, extra, and invalid scores rejected.
 - One keyed score array feeds both independent top-1 and Viterbi comparisons.
 - Unit tests for keyed score alignment, invalid scores and score-file mismatches.
+- Directed-graph and decoder regression tests for one-way routing, intermediate arcs,
+  disconnected components, GPS gaps, missing candidates and invalid inputs.
+- Classifier-only top-1 evaluation uses the same deterministic baseline tie-break:
+  highest score, then lowest `candidate_rank`, then lowest `arc_id`.
 
 The current API / UI is a **development** demo, not the final evaluation setup.
 It does not yet demonstrate that Viterbi improves trained-classifier accuracy.
