@@ -1,4 +1,11 @@
 data/*
 !data/.gitkeep
+!data/processed/
+data/processed/*
+!data/processed/observations.csv.gz
+!data/processed/trip_summary.csv
+!data/processed/split_summary.csv
+!data/processed/archive_inventory.csv
+!data/processed/sampling.png
 .ipynb_checkpoints/
 __pycache__/
