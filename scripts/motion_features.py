@@ -4,8 +4,12 @@ from zipfile import ZipFile
 import numpy as np
 import pandas as pd
 
-from generate_candidates import EARTH_RADIUS_M, longitude_delta, read_graph
-from score_baseline import KEY
+if __package__:
+    from .generate_candidates import EARTH_RADIUS_M, longitude_delta, read_graph
+    from .score_baseline import KEY
+else:
+    from generate_candidates import EARTH_RADIUS_M, longitude_delta, read_graph
+    from score_baseline import KEY
 
 
 HEADING = ["heading_agreement"]

@@ -1,9 +1,10 @@
-"""Development map matching API. Run with uvicorn pathsnap.api:app."""
+"""PathSnap map matching API. Run with uvicorn pathsnap.api:app."""
 
 import logging
 import os
 from pathlib import Path
 from time import perf_counter
+from zipfile import BadZipFile
 
 import numpy as np
 import pandas as pd
@@ -12,10 +13,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from pathsnap.decoder import Candidate, Observation, decode
+from pathsnap.decoder import CALIBRATED_DECODER, Candidate, Observation, decode
 from pathsnap.evaluator import available_evaluator_trips, load_evaluator_trip
-from pathsnap.evaluation import evaluate
-from pathsnap.scoring import DISPLAY_NAMES, score_candidates
+from pathsnap.evaluation import evaluate, load_reference_route
+from pathsnap.scoring import DISPLAY_NAMES, FINAL_MODEL, LIVE_MODELS, score_candidates
 from pathsnap.routing import Position, RoadGraph
 from scripts.view_trip import load_trip, render_trip
 
@@ -24,15 +25,18 @@ OBSERVATIONS = DATA / "processed/observations.csv.gz"
 ARCHIVE = Path(os.environ.get("PATHSNAP_DATA_ZIP", DATA / "raw/Student folder.zip")).expanduser()
 SPLIT = "student_test"
 EVALUATOR_ARCHIVE = os.environ.get("PATHSNAP_EVALUATOR_ZIP", "").strip()
+EVALUATOR_REFERENCES = os.environ.get("PATHSNAP_EVALUATOR_REFERENCE_ZIP", "").strip()
 # Per-trip bounded cache; 0 disables it to reproduce the uncached baseline.
 SHORTEST_CACHE_SIZE = int(os.environ.get("PATHSNAP_SHORTEST_CACHE_SIZE", "20000"))
 if SHORTEST_CACHE_SIZE < 0:
     raise ValueError("PATHSNAP_SHORTEST_CACHE_SIZE must be nonnegative")
 logger = logging.getLogger("uvicorn.error")
-app = FastAPI(title="PathSnap development API")
+app = FastAPI(title="PathSnap API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.environ.get("PATHSNAP_UI_ORIGIN", "http://localhost:8001")],
+    allow_origins=[origin.strip() for origin in os.environ.get(
+        "PATHSNAP_UI_ORIGIN", "http://localhost:8001,http://127.0.0.1:8001",
+    ).split(",")],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
@@ -40,7 +44,7 @@ app.add_middleware(
 
 class PredictionRequest(BaseModel):
     trip_id: str
-    model: str = "distance"
+    model: str = "final"
     split: str = "student_test"
 
 
@@ -51,11 +55,15 @@ def trip_ids():
 
 @app.get("/trips")
 def list_trips():
+    try:
+        evaluator_ids = available_evaluator_trips(EVALUATOR_ARCHIVE) if EVALUATOR_ARCHIVE else []
+    except (OSError, ValueError, BadZipFile) as exc:
+        logger.exception("Could not list evaluator trips")
+        raise HTTPException(503, "Evaluator geometry archive unavailable or invalid on Laptop 1") from exc
     return {
-        "trip_ids": trip_ids(), "evaluator_trip_ids": (
-            available_evaluator_trips(EVALUATOR_ARCHIVE) if EVALUATOR_ARCHIVE else []
-        ),
-        "final_model_configured": "final" in DISPLAY_NAMES,
+        "trip_ids": trip_ids(), "evaluator_trip_ids": evaluator_ids,
+        "final_model_configured": True,
+        "final_model": FINAL_MODEL,
         "models": DISPLAY_NAMES,
     }
 
@@ -73,8 +81,8 @@ def predict(request: PredictionRequest):
     else:
         if not EVALUATOR_ARCHIVE:
             raise HTTPException(503, "PATHSNAP_EVALUATOR_ZIP must be configured on Laptop 1")
-        if request.model in ("distance", "logistic_regression", "knn"):
-            raise HTTPException(422, "Evaluator trips require live trained-model inference")
+        if request.model not in ("final", FINAL_MODEL):
+            raise HTTPException(422, "Evaluator trips require the configured final model")
     logger.info("Decoding trip %s split=%s with %s", trip_id, request.split, request.model)
     start = perf_counter()
 
@@ -89,13 +97,15 @@ def predict(request: PredictionRequest):
             track, nodes, arcs, rows = load_evaluator_trip(EVALUATOR_ARCHIVE, trip_id)
     except KeyError as exc:
         raise HTTPException(404, str(exc)) from exc
-    except (OSError, ValueError, EOFError) as exc:
+    except (OSError, ValueError, EOFError, BadZipFile) as exc:
         logger.exception("Could not load trip %s in split %s", trip_id, request.split)
         raise HTTPException(503, "Trip data invalid or unavailable: " + str(exc)) from exc
 
     score_start = perf_counter()
     try:
-        score_name, scores = score_candidates(rows, model=request.model, trip_id=trip_id)
+        score_name, scores = score_candidates(
+            rows, model=request.model, trip_id=trip_id, geometry=(track, nodes, arcs),
+        )
     except (ValueError, FileNotFoundError, OSError, ImportError, TypeError) as exc:
         logger.exception("Invalid or unavailable candidate score export for %s", trip_id)
         raise HTTPException(503, "Trained scorer unavailable or invalid: " + str(exc)) from exc
@@ -116,7 +126,8 @@ def predict(request: PredictionRequest):
     ]
     graph = RoadGraph(nodes, arcs, shortest_cache_size=SHORTEST_CACHE_SIZE)
     decode_start = perf_counter()
-    result = decode(graph, observations)
+    settings = CALIBRATED_DECODER if request.model == "final" or request.model in LIVE_MODELS else {}
+    result = decode(graph, observations, **settings)
     decode_seconds = perf_counter() - decode_start
     evaluation = None
     if request.split == "student_test":
@@ -131,6 +142,16 @@ def predict(request: PredictionRequest):
             raise HTTPException(503, "Student-test evaluation labels unavailable") from exc
         if not labels.obs_id.is_unique or set(labels.obs_id) != set(track.obs_id):
             raise HTTPException(503, "Evaluation labels do not match trip observations")
+        evaluation = evaluate(labels, candidates, result.arcs_by_observation)
+    elif EVALUATOR_REFERENCES:
+        from scripts.generate_reference_labels import align_trip
+
+        try:
+            reference = load_reference_route(EVALUATOR_REFERENCES, trip_id, len(arcs))
+            labels = align_trip(track, nodes, arcs, reference)
+        except (OSError, ValueError, KeyError, BadZipFile) as exc:
+            logger.exception("Could not score evaluator trip %s against the configured reference", trip_id)
+            raise HTTPException(503, "Server-side evaluator reference unavailable or invalid") from exc
         evaluation = evaluate(labels, candidates, result.arcs_by_observation)
     map_start = perf_counter()
     trip_map, _ = render_trip(track, nodes, arcs, request.split, trip_id,

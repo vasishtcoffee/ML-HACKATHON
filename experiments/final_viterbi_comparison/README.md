@@ -1,37 +1,80 @@
-# Five saved-model comparisons after Viterbi
+# Consolidated Viterbi benchmark
 
-**Measured run:** [successful GitHub Actions run #44256618239](https://github.com/vasishtcoffee/ML-HACKATHON/actions/runs/44256618239) (18 November 2026) · [download exact per-trip and aggregate CSVs and run log](https://github.com/vasishtcoffee/ML-HACKATHON/actions/runs/44256618239/artifacts/14405744386).
+The [model comparison in the root README](../../README.md#model-comparison)
+ranks the highest-scoring saved variant from each of the five classifier
+families. [Aggregate results](aggregate.csv) and [per-trip results](per_trip.csv)
+include all 13 tested variants.
 
-All five models were trained previously on the **80 training trips**. Their saved score exports were evaluated using the **same 10 student-test trips**, reference-alignment denominator (16,317), candidate keys, decoder parameters (`beta_m=30`, `gap_seconds=5`), road-graph structure and 20,000-entry per-trip routing cache. Model optimisation was Person 2's responsibility; **Random Forest is the saved untuned baseline**, while the others below are saved tuned models.
+## Protocol
 
-## Accuracy and continuity
+- All models fit only on the 80 training trips. The benchmark uses the same
+  ten student-test trips, 19,160 GPS observations, 209,582 candidates, and
+  directed road graphs for every model.
+- Accuracy uses the 16,317 unambiguously aligned GPS observations. The six
+  aligned observations whose reference arc was outside the candidate set
+  count as wrong. Alignment excluded 2,822 ambiguous and 21 unmatched
+  observations. Accuracy pools observation counts across trips.
+- Every run calls the saved estimator on the trip's candidates and checks
+  the scores against its committed export by the full candidate key. The
+  geometry and reference alignment are shared. The enhanced variants add
+  GPS heading or motion to the original four geometry features.
+- Every variant uses `beta_m=60`, `gap_seconds=10`, and a 20,000-entry
+  per-trip routing cache. Those decoder parameters came from the
+  [training-only calibration](../../docs/person3_viterbi_tuning_speed.md).
+  The `--decoder original` option runs the earlier 30 m / 5 s setting.
+- Direct-arc continuity checks same-arc or directly connected predictions
+  on adjacent observations outside GPS gaps over five seconds and row
+  breaks. A valid route with intermediate arcs can fail this stricter test.
+  The route-pair F1 compares adjacent **ordered** arc pairs with the reference
+  sequence, counting repeated transitions up to their observed frequency.
+  Independent top-1 uses consecutive valid observations. Viterbi also
+  includes the intermediate arcs it reconstructs. Neither measure crosses
+  a predicted segment boundary.
+- Live scorer time sums model scoring, feature construction for enhanced
+  variants and first model load across the ten trips. Decode time and total
+  benchmark time are recorded separately. Timing was measured on the same
+  Windows laptop with Python 3.12 and depends on system load. Folium
+  rendering and HTTP transport are outside the benchmark.
 
-| Model | Classifier-only top-1 | Viterbi | Gain (pp) | Top-1 direct continuity | Viterbi direct continuity | Total route breaks |
-|---|---:|---:|---:|---:|---:|---:|
-| Tuned Logistic Regression | 54.58% | 80.24% | +25.65 | 82.11% | 95.46% | 221 |
-| **Tuned KNN** | 54.72% | **81.15%** | +26.43 | 82.07% | 95.58% | 221 |
-| Tuned MLP | 54.96% | 80.77% | +25.81 | 82.34% | **95.89%** | 221 |
-| Random Forest (untuned) | **55.02%** | 80.95% | +25.93 | **82.38%** | 95.72% | 221 |
-| Tuned XGBoost | 54.83% | 80.73% | +25.91 | 82.20% | 95.77% | 221 |
+## Reproduce
 
-### Interpretation and model recommendation
+```sh
+python -m pip install -r requirements/requirements-live-demo.txt
+python scripts/benchmark_final_models.py
+```
 
-- **Tuned KNN has the highest measured Viterbi observation-level accuracy: 81.15%**, despite Random Forest having higher classifier-only accuracy (55.02%). Choosing the winning classifier by top-1 alone would therefore be misleading for route reconstruction.
-- Tuned MLP has the highest measured strict direct-arc continuity, 95.89%. This measure only checks directly adjacent road arcs, not an arbitrarily long connecting road path.
-- The 221 route breaks are the **same across the five models**, likely because the graph, candidate coverage, and 5-second gap handling determine which steps can connect. This is not evidence that all model predictions are the same.
-- For a demo prioritising **route matching accuracy**, tuned KNN is the leading option *on this student-test dataset*. However, KNN's full fresh inference may be slower and more memory-intensive than MLP or Logistic Regression; decide on the final model with the team using actual server-side inference timings and the hackathon judging criteria.
-- **No final model is hard-coded** in the backend. Set `PATHSNAP_FINAL_MODEL=live_knn` on Laptop 1 *if the team chooses tuned KNN*.
+To reproduce the training-fold candidate metrics for the selected heading
+and motion models, install `requirements/requirements-classifier-tuning.txt`
+and run `python scripts/train_motion_models.py --selected-cv-only`.
+The fold means are post-selection diagnostics on the original three search
+folds. The student-test ranking supplies the held-out comparison.
 
-## Timing and limitations
+## Evidence and earlier runs
 
-| Model | 10-trip Viterbi decode time with caching | 10-trip total benchmark time* |
-|---|---:|---:|
-| Tuned Logistic Regression | 8.55 s | 13.52 s |
-| Tuned KNN | 8.57 s | 13.48 s |
-| Tuned MLP | 8.71 s | 13.83 s |
-| Random Forest | 8.64 s | 13.71 s |
-| Tuned XGBoost | 8.77 s | 13.88 s |
+- [Motion configuration](../motion_features/selection.json),
+  [training-fold metrics](../motion_features/selected_cv_metrics.csv) and
+  [student-test candidate metrics](../motion_features/metrics.csv) record
+  the feature-enhanced variants, including precision, recall, log loss and
+  confusion counts.
+- The earlier [KNN Bayesian search](../classifier_tuning/knn/search_trials.csv)
+  used Optuna TPE with group-aware training folds for the geometry-only KNN.
+  The enhanced KNN used the subsequent
+  [motion-feature search](../motion_features/validation_trials.csv) on the
+  same trip folds. Both are preserved in the benchmark.
+- The tuned Random Forest uses trial 4 from the team's Kaggle notebook
+  `pathsnap-full-team-run (1).ipynb`, cell 22. Its
+  [trial log](../random_forest_tuned/notebook_trials.json) and
+  [CV output](../random_forest_tuned/notebook_cv_macro_f1.csv) are from that run.
+  The [local refit metrics](../random_forest_tuned/refit_metrics.json)
+  use the committed processed data. Install `requirements/requirements-tuning.txt`
+  and run `python scripts/tune_tree_models.py --model random_forest --refit-notebook`
+  to reproduce the refit. See the [original XGBoost metrics](../xgboost/metrics.csv),
+  [tuned XGBoost metrics](../xgboost_tuned/metrics.csv) and
+  [search trials](../xgboost_tuned/search_trials.csv) for the boosting run.
+- The earlier [five-model run](https://github.com/vasishtcoffee/ML-HACKATHON/actions/runs/44256618239)
+  used geometry-only scores and 30 m / 5 s Viterbi. The [Kaggle notebook's
+  base revision](https://github.com/vasishtcoffee/ML-HACKATHON/tree/9fc9298037430e3a11f95ae24b7639306a42a74f)
+  predates the motion-feature branch. Their numbers describe those earlier runs.
 
-*These timings cover precomputed score-file loading, graph creation, Viterbi and reference evaluation. They **exclude original live fitted-model prediction/inference** (`predict_proba`) and must not be interpreted as total real demo latency. Actual live inference can be measured using the new FastAPI `timings.score_load_seconds` field with `live_*` models.
-
-Trip-level results, candidate misses, break counts, exact timings and aggregate counts are in the downloadable GitHub Actions artifact above. No evaluator labels were read or used. The ten student-test trips are development evidence and do not establish performance on the ten reserved evaluator trips.
+Codex assisted with integration, experiment reproduction and verification.
+No reserved evaluator data was supplied or used for model selection.

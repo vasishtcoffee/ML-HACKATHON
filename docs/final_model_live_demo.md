@@ -1,135 +1,98 @@
-# PathSnap final-model live inference — Person 3 handoff
+# Run the PathSnap demo
 
-## What is implemented
+The API runs the selected KNN with GPS motion features, then uses HMM/Viterbi
+to reconstruct a directed route. The checkout contains the trained model and
+student-test files. The [model comparison](../README.md#model-comparison)
+records the results used to select this model.
 
-Laptop 1 can load one of the **existing trained and trusted** model artifacts
-and score road-arc candidates for a new trip directly with the fitted model.
-Unlike the old distance-baseline and student-test score-file choices, the
-`live_*` models call the model's real saved inference routine for each new
-candidate. Their probabilities go into the unchanged Viterbi decoder, with
-`beta_m=30`, `gap_seconds=5`, and optional per-trip routing cache.
+## Laptop 1 · FastAPI
 
-Supported saved artifacts:
+Run from the repository root. Python 3.11 or 3.12 is suitable for the live demo.
 
-| UI model ID | Trusted repository model | Comment |
-|---|---|---|
-| `live_logistic_regression` | `experiments/classifier_tuning/logistic_regression/logistic_regression.joblib` | Bayesian-tuned |
-| `live_knn` | `experiments/classifier_tuning/knn/knn.joblib` | Bayesian-tuned, uses its saved KDTree and smoothed neighbor vote |
-| `live_mlp` | `experiments/classifier_tuning/mlp/mlp.joblib` | Bayesian-tuned |
-| `live_random_forest` | `experiments/random_forest/random_forest.joblib` | Saved baseline; do not call Bayesian-tuned |
-| `live_xgboost` | `experiments/xgboost_tuned/xgboost.joblib` | Tuned |
-| `final` | The model selected in `PATHSNAP_FINAL_MODEL` | Only appears when team explicitly sets it |
+**Windows PowerShell**
 
-The final model is **NOT implicitly chosen** by Person 3. The team must make
-the final choice based on its model-comparison protocol. Once selected, set
-`PATHSNAP_FINAL_MODEL` to one of the `live_*` IDs and restart Laptop 1.
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements/requirements-live-demo.txt
+.\.venv\Scripts\python.exe -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
+```
 
-## Install and run
-
-Use a trusted local clone of the complete repository with its committed
-model files. Model artifacts are Python joblib pickles: do not accept or load
-untrusted joblib uploads.
+**macOS or Linux**
 
 ```bash
 python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements/requirements-live-demo.txt
-# Example ONLY: substitute the team's actually selected model
-export PATHSNAP_FINAL_MODEL=live_mlp
-# Once the evaluator ZIP is provided, configure its trusted local path:
-export PATHSNAP_EVALUATOR_ZIP="/absolute/path/to/evaluator-trip-data.zip"
-# Allow the UI's actual origin; see CORS note below
-export PATHSNAP_UI_ORIGIN="http://localhost:8001"
-python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
+.venv/bin/python -m pip install -r requirements/requirements-live-demo.txt
+.venv/bin/python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
 ```
 
-The evaluator ZIP is **not committed to GitHub**. It stays on Laptop 1.
-The configured archive must contain the same plain-text geometry conventions
-as student data, with zero-based node and directed-arc IDs, including
-`<trip_id>/<trip_id>.track`, `.nodes` and `.arcs` (an arbitrary outer
-directory is allowed). Track rows are
-`longitude latitude timestamp_seconds`; nodes are `longitude latitude`;
-arcs are `from_node_id to_node_id`. The loader deliberately does not read
-`.route` or any reference/ground-truth files, even if they exist in that ZIP.
-It preserves original observation IDs, removes invalid coordinates and repeated
-timestamps using the same cleaning rules as the training notebook, and
-generates 50m road-arc candidate geometry with the **original candidate
-feature generator**.
+Keep Uvicorn visible to show requests and inference timings during the demo.
+The optional `PATHSNAP_DATA_ZIP` variable overrides the student archive path.
+The default UI origins are `http://localhost:8001` and
+`http://127.0.0.1:8001`. Set `PATHSNAP_UI_ORIGIN` on Laptop 1 to the actual
+browser origin if using another port or hostname. Multiple origins can be
+comma separated.
 
-**CORS note:** When Laptop 2 serves `ui/index.html` from a local
-`http://localhost:8001` webserver, its browser origin is normally
-`http://localhost:8001` even when the backend is on another IP. If Laptop 2
-uses a different UI origin, set `PATHSNAP_UI_ORIGIN` accordingly before
-starting the backend.
+## Laptop 2 · Browser
 
-On Laptop 2, from a repository checkout:
+From the repository root, run:
 
-```bash
+```sh
 python -m http.server 8001 --bind 127.0.0.1 --directory ui
 ```
 
-Browse to `http://localhost:8001`, enter **Laptop 1's actual LAN
-address** (for example `http://192.168.1.10:8000`) and choose **Connect**.
-Select `Evaluator (live inference)`, a discovered evaluator trip, then
-`TEAM FINAL` (or a `live_*` model) and **Decode route**.
+1. Open `http://localhost:8001`.
+2. Enter Laptop 1's LAN address with port 8000, for example
+   `http://192.168.1.10:8000`, and click **Connect**. For a one-laptop demo,
+   use the prefilled localhost address. Both laptops need network access to
+   Laptop 1 on port 8000.
+3. For a practice run, pick **Student-test (development)**, trip
+   **00000052**, and **Final model**. Click **Decode route**.
+4. Show the measured GPS points in blue, the decoded route in pink, and the
+   two accuracy values above the map. The map loads Leaflet and map tiles over
+   the internet.
 
-## Development and evaluator API
+## Reserved evaluator trips
 
-`GET /trips` returns:
-- `trip_ids`: the ten *student-test* trip IDs, for development;
-- `evaluator_trip_ids`: valid trip IDs found in the trusted evaluator ZIP,
-  or empty if no evaluator archive is configured;
-- `models`: all approved scorer choices; `final` is present only when
-  `PATHSNAP_FINAL_MODEL` is configured.
+Set these environment variables on Laptop 1 **before starting Uvicorn**, once
+the organisers supply the data:
 
-`POST /predict` payload:
+| Variable | Server-side input |
+| --- | --- |
+| `PATHSNAP_EVALUATOR_ZIP` | Trusted ZIP with one `<trip_id>/<trip_id>.track`, `.nodes`, and `.arcs` group per trip. An outer folder is allowed. |
+| `PATHSNAP_EVALUATOR_REFERENCE_ZIP` | Trusted private ZIP with one `<trip_id>/<trip_id>.route` per trip, if the organisers supply references for server-side scoring. It can point to the geometry archive if that archive also contains the references. |
+
+The expected geometry format matches the student data. Track columns are
+longitude, latitude and timestamp in seconds. Node columns are longitude and
+latitude. Arc columns are zero-based source and destination node IDs. Each
+reference file is an ordered list of zero-based arc IDs. Keep both
+evaluator inputs on Laptop 1. They are configured by the server operator
+outside the repository.
+
+The UI selects **Evaluator (live inference)** when it finds evaluator trips
+and locks the scorer to **Final model**. The backend generates candidates and
+motion features from the new trip, runs the saved classifier and Viterbi,
+then aligns the private reference when configured. It returns aggregate
+metrics and the predicted route. Without a reference archive, it displays
+the route with accuracy marked unavailable.
+
+The actual reserved files and a second laptop were unavailable during
+development. The evaluator archive flow was verified with all ten student-test
+trips repackaged into separate geometry and reference ZIPs. Confirm the
+organisers' file format and test the LAN connection on the evaluation laptops.
+
+## API and verification
+
+`GET /trips` lists the student-test IDs, configured evaluator IDs and model
+choices. For live student-test inference:
 
 ```json
-{"split": "evaluator", "trip_id": "YOUR_EVALUATOR_TRIP_ID", "model": "final"}
+{"trip_id":"00000052","split":"student_test","model":"final"}
 ```
 
-For student-test development requests, omit `split` (defaults to
-`student_test`) and select any scorer. To confirm that live inference
-reproduces known results, select `live_mlp` on trip `00000052`.
-Student-test requests return reference-based metrics **server-side only**.
-Evaluator responses return a decoded route, Folium map and timing information
-but **null `evaluation` and `accuracy`**, because evaluator labels are
-not available to this program. The browser does not upload a model or choose
-a filesystem path.
+Send the JSON to `POST /predict`. The response includes timings, the score
+summary and Folium HTML. The evaluator request uses `"split":"evaluator"`
+and one of the server's listed evaluator IDs.
 
-The server logs the model, trip, split, decode time and routing/cache/map
-timings to the Uvicorn terminal. The UI shows the matched count, number of
-route segments/breaks and routing/rendering times.
-
-## Verification
-
-```bash
+```sh
 python -m unittest discover -s tests -v
 ```
-
-Integration tests independently load the saved tuned classifier artifacts,
-score the known trip's candidates, and check they reproduce the committed
-student-test score files. A separate synthetic evaluator ZIP test verifies
-that the backend:
-- discovers the new trip via GET /trips;
-- refuses use of precomputed student-test scores in evaluator mode;
-- generates candidates, performs real MLP inference and Viterbi decoding;
-- returns a Folium route but **no reference metrics**;
-- does not open the `.route` member, even when present;
-- rejects evaluator requests when no evaluator archive is configured.
-
-See the [GitHub Actions workflow](../.github/workflows/live-inference-ci.yml)
-and its recorded test run.
-
-## Remaining final verification
-
-This integration is a **tested software implementation**, not a claim that
-the actual evaluator ZIP has been delivered or that a real two-laptop
-network demonstration was completed. When the evaluator format is supplied,
-verify its exact field layout and member structure before the assessment.
-The chosen final classifier must also be tested on actual evaluator trips,
-without looking at hidden ground truth or hardcoding expected answers.
-
-If the evaluator provides a different format, adapt the input adapter
-(`pathsnap/evaluator.py`) while preserving the trusted model, decoder and
-reference-data isolation. Do **not** select the best model by evaluator labels.

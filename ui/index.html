@@ -40,26 +40,16 @@
   const map = document.querySelector('#map');
   let api;
   let available = {student_test: [], evaluator: []};
-  let displayNames = {}; 
   function refreshTrips() {
     trips.replaceChildren();
     for (const id of available[split.value]) trips.add(new Option(id, id));
-    trips.disabled = decode.disabled = !available[split.value].length;
-    const onlyLive = split.value === 'evaluator';
-    for (const option of model.options) {
-      option.disabled = onlyLive && !option.value.startsWith('live_') && option.value !== 'final';
-    }
-    if (model.selectedOptions[0]?.disabled) {
-      const preferred = Array.from(model.options).find(option => !option.disabled);
-      if (preferred) model.value = preferred.value;
-    }
-    if (onlyLive && model.options.length && !Array.from(model.options).some(option => !option.disabled)) {
-      decode.disabled = true;
-      status.textContent = 'No live classifier is available. Configure Laptop 1.';
-    } else {
-      status.textContent = available[split.value].length ? 'Select a trip and scoring model.' :
-        (onlyLive ? 'No evaluator trips configured on Laptop 1.' : 'No student-test trips available.');
-    }
+    map.hidden = true;
+    const evaluator = split.value === 'evaluator';
+    trips.disabled = decode.disabled = !trips.options.length;
+    model.disabled = evaluator;
+    if (evaluator) model.value = 'final';
+    status.textContent = trips.options.length ? 'Select a trip, then decode its route.' :
+      (evaluator ? 'No evaluator trips configured on Laptop 1.' : 'No student-test trips available.');
   }
   split.addEventListener('change', refreshTrips);
   async function request(path, options) {
@@ -74,15 +64,15 @@
     model.replaceChildren();
     status.textContent = 'Connecting…';
     try {
-      api = new URL(backend.value);
+      api = new URL(backend.value.trim());
       const data = await request('/trips');
       available = {student_test: data.trip_ids || [], evaluator: data.evaluator_trip_ids || []};
       split.replaceChildren(new Option('Student-test (development)', 'student_test'),
         new Option('Evaluator (live inference)', 'evaluator'));
+      split.value = available.evaluator.length ? 'evaluator' : 'student_test';
       split.disabled = false;
       for (const [id, label] of Object.entries(data.models)) model.add(new Option(label, id));
-      model.value = data.final_model_configured ? "final" : "distance";
-      model.disabled = false;
+      model.value = 'final';
       refreshTrips();
     } catch (error) {
       status.textContent = 'Connection failed. Check the backend address and allowed UI origin. ' + error.message;
@@ -101,24 +91,29 @@
       map.srcdoc = data.map_html;
       map.hidden = false;
       const e = data.evaluation;
-      const percent = value => value == null ? 'Unavailable (evaluator labels withheld)' : (100 * value).toFixed(1) + '%';
+      const percent = value => value == null ? 'Unavailable' : (100 * value).toFixed(2) + '%';
       const metricText = e ? (
-        ' · Top-1: ' + percent(e.top1_accuracy) +
-        ' · Viterbi: ' + percent(e.viterbi_accuracy) +
+        ' · Classifier top-1: ' + percent(e.top1_accuracy) +
+        ' · Decoded accuracy: ' + percent(e.viterbi_accuracy) +
         ' · ' + e.aligned + ' aligned, including ' + e.candidate_misses +
         ' candidate misses. Excluded ' + e.ambiguous_excluded +
         ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.'
-      ) : ' · Evaluator reference labels withheld; no accuracy is computed.';
-      status.textContent = data.scoring + ' · ' + data.matched_observations + '/' +
-        data.observations + ' observations matched · ' + data.route_segments.length +
-        ' route segments (' + Math.max(0, data.route_segments.length - 1) + ' breaks) · ' +
+      ) : ' · Accuracy unavailable. Laptop 1 has no configured evaluator reference.';
+      const segments = data.route_segments.length;
+      status.textContent = 'Trip ' + data.trip_id + ' · ' + data.scoring + ' · ' + data.matched_observations + '/' +
+        data.observations + ' observations matched · ' + segments +
+        (segments === 1 ? ' route segment (' : ' route segments (') + Math.max(0, segments - 1) + ' breaks) · ' +
         data.runtime_seconds + ' s server total' + metricText +
         (data.timings ? ' Routing: ' + data.timings.road_routing_seconds.toFixed(2) +
         ' s · Map: ' + data.timings.map_render_seconds.toFixed(2) + ' s.' : '');
 
     } catch (error) {
       status.textContent = 'Decoding failed. ' + error.message;
-    } finally { connect.disabled = model.disabled = split.disabled = false; refreshTrips(); }
+    } finally {
+      connect.disabled = split.disabled = false;
+      model.disabled = split.value === 'evaluator';
+      trips.disabled = decode.disabled = !trips.options.length;
+    }
   };
 </script>
 </html>

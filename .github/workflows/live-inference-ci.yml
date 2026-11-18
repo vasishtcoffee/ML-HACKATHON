@@ -2,14 +2,14 @@ name: PathSnap final trained-model live inference tests
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - pathsnap/final-model-live-inference
+  pull_request:
     paths:
       - .github/workflows/live-inference-ci.yml
       - pathsnap/**
-      - tests/test_live_inference.py
-      - requirements/requirements-live-demo.txt
+      - scripts/**
+      - tests/**
+      - requirements/**
+      - ui/**
 
 permissions:
   contents: read

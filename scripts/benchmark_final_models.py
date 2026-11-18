@@ -1,12 +1,7 @@
-"""Fair comparison of five existing saved model score exports AFTER Viterbi.
+"""Compare the team's saved PathSnap variants using shared student-test protocol."""
 
-Does not select the final classifier automatically: reports all ten
-student-test trips, one shared graph/candidate layout and unchanged
-decoder settings. A 20,000-entry per-trip routing cache changes speed,
-not outputs. No evaluator data is read or used.
-"""
-import csv
-import json
+import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -14,68 +9,79 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from scripts.benchmark_trained_decoding import one_trip, write_csv
+from pathsnap.decoder import CALIBRATED_DECODER
+from pathsnap.scoring import LIVE_MODELS
+from scripts.benchmark_trained_decoding import one_trip, summarize, write_csv
 from scripts.view_trip import ROOT
 
+
 SOURCES = {
-    "tuned_logistic_regression": ROOT / "experiments/classifier_tuning/logistic_regression/logistic_regression_student_scores.parquet",
-    "tuned_knn": ROOT / "experiments/classifier_tuning/knn/knn_student_scores.parquet",
-    "tuned_mlp": ROOT / "experiments/classifier_tuning/mlp/mlp_student_scores.parquet",
-    "random_forest_baseline": ROOT / "experiments/random_forest/random_forest_student_scores.parquet",
-    "tuned_xgboost": ROOT / "experiments/xgboost_tuned/xgboost_student_scores.parquet",
+    "live_heading_logistic_regression": "logistic_regression",
+    "live_motion_knn": "knn",
+    "live_motion_mlp": "mlp",
+    "live_random_forest": "random_forest",
+    "live_xgboost": "xgboost",
+    "live_logistic_regression": "logistic_regression",
+    "live_knn": "knn",
+    "live_mlp": "mlp",
+    "live_tuned_random_forest": "random_forest",
+    "live_baseline_logistic_regression": "logistic_regression",
+    "live_baseline_knn": "knn",
+    "live_baseline_mlp": "mlp",
+    "live_baseline_xgboost": "xgboost",
 }
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--decoder", choices=("calibrated", "original"), default="calibrated")
+    parser.add_argument("--output", type=Path, default=ROOT / "experiments/final_viterbi_comparison")
+    parser.add_argument("--archive", type=Path, default=Path(os.environ.get(
+        "PATHSNAP_DATA_ZIP", ROOT / "data/raw/Student folder.zip",
+    )))
+    parser.add_argument("--models", nargs="+", choices=SOURCES, default=list(SOURCES))
+    args = parser.parse_args()
     data = ROOT / "data/processed"
-    archive = ROOT / "data/raw/Student folder.zip"
-    output = ROOT / "experiments/final_viterbi_comparison"
-    output.mkdir(parents=True, exist_ok=True)
+    args.output.mkdir(parents=True, exist_ok=True)
     trip_table = pd.read_csv(data / "trip_summary.csv", dtype={"trip_id": str})
-    ids = sorted(trip_table.loc[trip_table.split.eq("student_test"), "trip_id"].unique().tolist())
+    ids = sorted(trip_table.loc[trip_table.split.eq("student_test"), "trip_id"].unique())
     if len(ids) != 10:
-        raise ValueError("Ten student-test trips are required")
-    for path in [archive, *SOURCES.values()]:
-        if not path.is_file():
-            raise FileNotFoundError(path)
+        raise ValueError("Expected ten student-test trips")
+    decoder = CALIBRATED_DECODER if args.decoder == "calibrated" else {}
 
-    per_trip, aggregate = [], []
-    for name, score_file in SOURCES.items():
-        current = []
-        print("\nMODEL:", name, flush=True)
+    per_trip = []
+    for model in args.models:
+        family = SOURCES[model]
+        export = LIVE_MODELS[model].with_name(f"{family}_student_scores.parquet")
         for trip_id in ids:
-            r = one_trip(
-                name, trip_id, data, archive,
+            row = one_trip(
+                model, trip_id, data, args.archive,
                 data / "candidates_student_test.parquet",
                 data / "reference_labels_student_test.parquet",
-                score_file,
-                cache_size=20000,
+                export, decoder_kwargs=decoder, cache_size=20000,
+                live=True, compare_route_pairs=True,
             )
-            per_trip.append(r)
-            current.append(r)
-            print(f"{trip_id}: Top-1 {r['top1_accuracy']:.2%} => Viterbi {r['viterbi_accuracy']:.2%}, "
-                  f"breaks {r['route_breaks']}, runtime {r['decode_seconds']:.2f}s", flush=True)
-        aligned = sum(r["aligned"] for r in current)
-        tp = sum(r["top1_correct"] for r in current)
-        vp = sum(r["viterbi_correct"] for r in current)
-        top_pairs = sum(r["top1_pairs"] for r in current)
-        dec_pairs = sum(r["viterbi_pairs"] for r in current)
-        aggregate.append({
-            "model": name, "aligned": aligned,
-            "top1_correct": tp, "viterbi_correct": vp,
-            "top1_accuracy": tp / aligned,
-            "viterbi_accuracy": vp / aligned,
-            "gain_pp": 100 * (vp - tp) / aligned,
-            "top1_continuity": sum(r["top1_continuous"] for r in current) / top_pairs,
-            "viterbi_continuity": sum(r["viterbi_continuous"] for r in current) / dec_pairs,
-            "route_breaks": sum(r["route_breaks"] for r in current),
-            "decoder_seconds": sum(r["decode_seconds"] for r in current),
-            "end_to_end_seconds_excluding_ml_inference": sum(r["end_to_end_seconds"] for r in current),
-        })
-        write_csv(output / "per_trip.csv", per_trip)
-        write_csv(output / "aggregate.csv", aggregate)
-        print("AGGREGATE", json.dumps(aggregate[-1]), flush=True)
-    print("Completed five-model, fifty-trip comparison; metrics include student-test reference alignment only.",flush=True)
+            per_trip.append(row)
+            print(f"{model} {trip_id}: top-1={row['top1_accuracy']:.2%}, "
+                  f"Viterbi={row['viterbi_accuracy']:.2%}, scorer={row['score_seconds']:.2f}s", flush=True)
+
+    aggregate = summarize(per_trip, args.models)
+    for row in aggregate:
+        sample = [r for r in per_trip if r["model"] == row["model"]]
+        row["classifier"] = SOURCES[row["model"]]
+        row["beta_m"] = decoder.get("beta_m", 30.0)
+        row["gap_seconds"] = decoder.get("gap_seconds", 5.0)
+        reference_pairs = sum(r["reference_route_pairs"] for r in sample)
+        for name in ("top1", "viterbi"):
+            predicted = sum(r[f"{name}_route_pairs"] for r in sample)
+            correct = sum(r[f"{name}_route_pairs_correct"] for r in sample)
+            row[f"{name}_route_pair_f1"] = 2 * correct / (predicted + reference_pairs)
+    aggregate.sort(key=lambda r: r["viterbi_accuracy"], reverse=True)
+    write_csv(args.output / "per_trip.csv", per_trip)
+    write_csv(args.output / "aggregate.csv", aggregate)
+    for row in aggregate:
+        print(f"{row['model']}: {row['viterbi_correct']}/{row['aligned']} "
+              f"decoded ({row['viterbi_accuracy']:.2%})", flush=True)
 
 
 if __name__ == "__main__":

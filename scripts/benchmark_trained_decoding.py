@@ -15,6 +15,7 @@ import argparse
 import csv
 import json
 import os
+from itertools import pairwise
 from pathlib import Path
 from time import perf_counter
 
@@ -28,9 +29,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from pathsnap.decoder import Candidate, Observation, decode
-from pathsnap.evaluation import evaluate
+from pathsnap.evaluation import evaluate, load_reference_route, route_pair_counts
 from pathsnap.routing import Position, RoadGraph
-from pathsnap.scoring import match_exported_scores, SCORE_FILES, DISPLAY_NAMES
+from pathsnap.scoring import live_model_scores, match_exported_scores, SCORE_FILES, DISPLAY_NAMES
 from scripts.view_trip import ROOT, load_trip
 
 KEY = ["split", "trip_id", "obs_id", "arc_id"]
@@ -82,7 +83,8 @@ def assemble(track, candidates, scores):
     return timeline, by_obs
 
 
-def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_file, *, decoder_kwargs=None, cache_size=0):
+def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_file, *,
+             decoder_kwargs=None, cache_size=0, live=False, compare_route_pairs=False):
     t0 = perf_counter()
     track, nodes, arcs = load_trip(data / "observations.csv.gz", archive, SPLIT, trip_id)
     rows = pq.read_table(candidates_file, filters=[("split", "=", SPLIT), ("trip_id", "=", trip_id)]).to_pandas()
@@ -98,8 +100,14 @@ def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_
         score_file, filters=[("split", "=", SPLIT), ("trip_id", "=", trip_id)],
         columns=KEY + ["score"],
     ).to_pandas()
-    scores = match_exported_scores(rows, exported)
-    score_seconds = perf_counter() - t_score
+    if live:
+        t_score = perf_counter()
+        scores = live_model_scores(rows, model, geometry=(track, nodes, arcs))
+        score_seconds = perf_counter() - t_score
+        np.testing.assert_allclose(scores, match_exported_scores(rows, exported), atol=1e-7, rtol=1e-7)
+    else:
+        scores = match_exported_scores(rows, exported)
+        score_seconds = perf_counter() - t_score
     if rows.empty or not rows["trip_id"].eq(trip_id).all():
         raise ValueError(f"Wrong or empty candidate trip {trip_id}")
     obs, by_obs = assemble(track, rows, scores)
@@ -120,6 +128,19 @@ def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_
 
     top1_good, top1_pairs = continuity(track, arcs, top1)
     decoded_good, decoded_pairs = continuity(track, arcs, reconstructed.arcs_by_observation)
+    sequence = {}
+    if compare_route_pairs:
+        reference = load_reference_route(archive, trip_id, len(arcs), split=SPLIT)
+        reference_pairs = route_pair_counts([reference])
+        # Missing observations and timestamp/row breaks split the top-1 sequence.
+        boundaries = (track.gap_before | track.row_break_before).to_numpy()
+        top1_routes = [(a, b) for gap, (a, b) in zip(boundaries[1:], pairwise(map(top1.get, track.obs_id)))
+                       if not gap and a is not None and b is not None]
+        for name, segments in (("top1", top1_routes), ("viterbi", reconstructed.segments)):
+            predicted = route_pair_counts(segments)
+            sequence[f"{name}_route_pairs"] = predicted.total()
+            sequence[f"{name}_route_pairs_correct"] = (predicted & reference_pairs).total()
+        sequence["reference_route_pairs"] = reference_pairs.total()
     return {
         "model": model,
         "trip_id": trip_id,
@@ -152,6 +173,7 @@ def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_
         "score_seconds": score_seconds,
         "decode_seconds": decode_seconds,
         "end_to_end_seconds": perf_counter() - t0,
+        **sequence,
     }
 
 

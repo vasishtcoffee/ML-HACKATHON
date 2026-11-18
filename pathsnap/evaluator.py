@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 
 from scripts.generate_candidates import project_candidates
+from pathsnap.routing import distance_m
 
 _SUFFIX = re.compile(r"(?:^|/)([A-Za-z0-9_-]+)/\1\.(track|nodes|arcs)$")
 _MAX_MEMBERS = 300
@@ -54,12 +55,12 @@ def available_evaluator_trips(archive_path):
         return sorted(_members(archive))
 
 
-def _load_whitespace(archive, name, width, dtype, limit):
+def _load_whitespace(archive, name, width, dtype, limit, *, require_finite=True):
     with archive.open(name) as source:
         array = np.loadtxt(source, ndmin=2, dtype=dtype)
     if array.ndim != 2 or array.shape[1] != width or not 0 < len(array) <= limit:
         raise ValueError(f"Invalid evaluator table shape: {name}")
-    if not np.isfinite(array).all():
+    if require_finite and not np.isfinite(array).all():
         raise ValueError(f"Evaluator table contains non-finite entries: {name}")
     return array
 
@@ -77,7 +78,8 @@ def load_evaluator_trip(archive_path, trip_id):
         if trip_id not in entries:
             raise KeyError(f"Unknown evaluator trip ID: {trip_id}")
         paths = entries[trip_id]
-        raw = _load_whitespace(archive, paths["track"], 3, float, _MAX_OBSERVATIONS)
+        raw = _load_whitespace(archive, paths["track"], 3, float, _MAX_OBSERVATIONS,
+                               require_finite=False)
         nodes = _load_whitespace(archive, paths["nodes"], 2, float, _MAX_NODES)
         arcs = _load_whitespace(archive, paths["arcs"], 2, np.int64, _MAX_ARCS)
     if not (np.abs(nodes[:, 0]) <= 180).all() or not (np.abs(nodes[:, 1]) <= 90).all():
@@ -95,8 +97,13 @@ def load_evaluator_trip(archive_path, trip_id):
     track = track.reset_index()
     track["split"] = "evaluator"
     track["trip_id"] = trip_id
-    track["gap_before"] = track.timestamp_s.diff().gt(5).fillna(False)
-    track["row_break_before"] = track.obs_id.diff().ne(1) & track.timestamp_s.diff().notna()
+    dt = track.timestamp_s.diff()
+    track["gap_before"] = dt.gt(5)
+    track["row_break_before"] = track.obs_id.diff().ne(1) & dt.notna()
+    coords = list(zip(track.longitude, track.latitude, strict=True))
+    steps = np.array([np.nan, *(distance_m(a, b) for a, b in zip(coords, coords[1:]))])
+    usable_motion = dt.gt(0) & ~track.gap_before & ~track.row_break_before
+    track["speed_mps"] = (steps / dt).where(usable_motion)
     candidates = project_candidates(track, nodes, arcs, radius_m=50.0)
     candidates["split"] = "evaluator"
     candidates["trip_id"] = trip_id

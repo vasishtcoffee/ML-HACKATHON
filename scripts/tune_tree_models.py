@@ -1,13 +1,17 @@
 """Tune candidate ranking using only training-trip cross-validation."""
 import json
+import os
 from importlib.metadata import version
 from pathlib import Path
+import joblib
 import optuna
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import GroupKFold
-from train_baselines import ROOT, MODELS, load_split, fit_model, top_candidates, OBS_KEY, run
+from threadpoolctl import threadpool_limits
+from train_baselines import ROOT, MODELS, load_split, load_arcs, fit_model, measure, top_candidates, OBS_KEY, run
 from score_baseline import score_candidates
+from score_baseline import KEY
 
 
 def tune(name, trials=6):
@@ -65,10 +69,42 @@ def tune(name, trials=6):
     MODELS[name]=best
     run(ROOT / "data/processed", ROOT / "data/raw/Student folder.zip",output,[name])
 
+def refit_notebook_forest():
+    """Reuse the team notebook's recorded training-only forest selection."""
+    output = ROOT / "experiments/random_forest_tuned"
+    trials = json.loads((output / "notebook_trials.json").read_text(encoding="utf-8"))
+    best = max(trials, key=lambda trial: trial["value"])
+    parameters = {**MODELS["random_forest"], **best["parameters"]}
+    processed = ROOT / "data/processed"
+    archive = Path(os.environ.get("PATHSNAP_DATA_ZIP", ROOT / "data/raw/Student folder.zip"))
+    _, train = load_split(processed, "train")
+    print(f"Refitting Random Forest using notebook trial {best['number']}", flush=True)
+    with threadpool_limits(limits=4):
+        model, count, fit_seconds = fit_model("random_forest", train, parameters=parameters)
+        del train
+        timeline, test = load_split(processed, "student_test")
+        metrics, scores = measure(model, timeline, test, load_arcs(processed, archive), "student_test")
+    metrics.update(fit_candidates=count, fit_seconds=fit_seconds)
+    test[KEY].assign(score=scores).to_parquet(
+        output / "random_forest_student_scores.parquet", index=False, compression="zstd",
+    )
+    joblib.dump(model, output / "random_forest.joblib", compress=3)
+    (output / "refit_metrics.json").write_text(
+        json.dumps(metrics, default=lambda value: value.item(), indent=2) + "\n", encoding="utf-8",
+    )
+    print(f"Refit {count:,} candidates in {fit_seconds:.1f}s", flush=True)
+
+
 if __name__ == "__main__":
     import argparse
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model",choices=["random_forest","xgboost"],required=True)
     parser.add_argument("--trials",type=int,default=6)
+    parser.add_argument("--refit-notebook", action="store_true", help="Refit the recorded Random Forest selection")
     args=parser.parse_args()
-    tune(args.model,args.trials)
+    if args.refit_notebook:
+        if args.model != "random_forest":
+            parser.error("--refit-notebook requires --model random_forest")
+        refit_notebook_forest()
+    else:
+        tune(args.model,args.trials)

@@ -78,18 +78,43 @@ class EvaluatorAPITests(unittest.TestCase):
                 })
                 self.assertEqual(refused.status_code, 422)
                 prediction = self.client.post("/predict", json={
-                    "split": "evaluator", "trip_id": "test123", "model": "live_mlp",
+                    "split": "evaluator", "trip_id": "test123", "model": "final",
                 })
                 self.assertEqual(prediction.status_code, 200, prediction.text[:1200])
                 result = prediction.json()
                 self.assertEqual(result["split"], "evaluator")
-                self.assertEqual(result["scoring_model"], "live_mlp")
+                self.assertEqual(result["scoring_model"], "final")
                 self.assertEqual(result["observations"], 2)
                 self.assertIsNone(result["evaluation"])
                 self.assertIsNone(result["accuracy"])
                 self.assertIn("Decoded route", result["map_html"])
                 self.assertNotIn("THIS MUST NEVER BE READ", str(result))
                 self.assertGreater(result["timings"]["map_render_seconds"], 0)
+
+    def test_private_reference_scores_completed_evaluator_prediction(self):
+        with tempfile.TemporaryDirectory() as td:
+            geometry = Path(td) / "geometry.zip"
+            references = Path(td) / "references.zip"
+            with ZipFile(geometry, "w") as archive:
+                archive.writestr("demo/demo.track", "0.0002 0.0 0\n0.0008 0.0 1\n")
+                archive.writestr("demo/demo.nodes", "0.0 0.0\n0.001 0.0\n")
+                archive.writestr("demo/demo.arcs", "0 1\n")
+            with ZipFile(references, "w") as archive:
+                archive.writestr("private/demo/demo.route", "0\n")
+            with (patch.object(api, "EVALUATOR_ARCHIVE", str(geometry)),
+                  patch.object(api, "EVALUATOR_REFERENCES", str(references)),
+                  patch.object(api, "decode", wraps=api.decode) as decode,
+                  patch.object(api, "load_reference_route", wraps=api.load_reference_route) as load):
+                calls = unittest.mock.Mock()
+                calls.attach_mock(decode, "decode")
+                calls.attach_mock(load, "load_reference")
+                response = self.client.post("/predict", json={"split": "evaluator", "trip_id": "demo"})
+                self.assertEqual(response.status_code, 200, response.text[:400])
+                payload = response.json()
+                self.assertEqual(payload["accuracy"], 1.0)
+                self.assertEqual(payload["evaluation"]["aligned"], 2)
+                self.assertEqual([call[0] for call in calls.mock_calls], ["decode", "load_reference"])
+                self.assertNotIn("reference_arc_id", response.text)
 
     def test_unconfigured_evaluator_is_not_exposed(self):
         with patch.object(api, "EVALUATOR_ARCHIVE", ""):

@@ -1,22 +1,7 @@
 # Direction and movement experiments
 
-## What Viterbi changed
-
-Results cover the same 16,317 aligned observations across ten student-test trips.
-The decoder uses the same parameters for each classifier.
-
-| Enhanced classifier | Before Viterbi | After Viterbi | Accuracy change | Continuity before | Continuity after |
-|---|---:|---:|---:|---:|---:|
-| Logistic Regression | 85.33% | 83.15% | −2.19 pp | 90.66% | 96.11% |
-| KNN | 85.93% | 83.97% | −1.96 pp | 91.33% | 96.68% |
-| MLP | 85.74% | 83.48% | −2.26 pp | 91.69% | 96.19% |
-
-On the earlier tuned scores, Viterbi raised Logistic Regression from 54.58%
-to 80.08%, KNN from 54.72% to 80.70%, and MLP from 54.96% to 80.38%.
-With the enhanced scores, Viterbi improved route continuity while reducing
-pointwise accuracy. Even so, all three decoded results exceeded their prior
-decoded accuracy. The fixed decoder settings were calibrated with a distance
-scorer on training trips. They were not recalibrated against the enhanced scores.
+This experiment records the feature-development runs. See the
+[root comparison](../../README.md#model-comparison) for the final five-family ranking.
 
 ## Changes to the classifier inputs
 

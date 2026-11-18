@@ -183,6 +183,31 @@ def run(processed, archive, prior_dir, output):
     pd.DataFrame(results).to_csv(output / "metrics.csv", index=False)
 
 
+def validate_selected(processed, archive, output):
+    """Measure candidate classification metrics on the recorded training folds."""
+    timeline, candidates = load_split(processed, "train")
+    train = add_features(processed, archive, "train", candidates)
+    del candidates
+    assignments = pd.read_csv(output / "search_folds.csv", dtype={"trip_id": str})
+    if not assignments.trip_id.is_unique or set(assignments.trip_id) != set(timeline.trip_id):
+        raise ValueError("Training CV requires the original trip-disjoint fold assignments")
+    selections = json.loads((output / "selection.json").read_text(encoding="utf-8"))
+    results = []
+    for fold, trips in assignments.groupby("validation_fold"):
+        hold = train.trip_id.isin(trips.trip_id)
+        targets = timeline.loc[timeline.trip_id.isin(trips.trip_id)]
+        fitting = train.loc[~hold]
+        validation = train.loc[hold & train.alignment_status.eq("aligned")]
+        for model, choice in selections.items():
+            artifact, _, _, fit_seconds = fit_selected(
+                model, choice["parameters"], SETS[choice["variant"]], fitting,
+            )
+            metrics, _ = measure(artifact, targets, validation, None, "cv", fold=int(fold))
+            results.append({**metrics, "fit_seconds": fit_seconds})
+            print(f"{model} fold {fold}: macro F1={metrics['macro_f1']:.4f}", flush=True)
+    pd.DataFrame(results).to_csv(output / "selected_cv_metrics.csv", index=False)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--processed-dir", type=Path, default=ROOT / "data/processed")
@@ -191,9 +216,13 @@ def main():
     )))
     parser.add_argument("--prior", type=Path, default=ROOT / "experiments/classifier_tuning")
     parser.add_argument("--output", type=Path, default=ROOT / "experiments/motion_features")
+    parser.add_argument("--selected-cv-only", action="store_true", help="Measure CV metrics for the saved selection")
     args = parser.parse_args()
     with threadpool_limits(limits=4):
-        run(args.processed_dir, args.archive, args.prior, args.output)
+        if args.selected_cv_only:
+            validate_selected(args.processed_dir, args.archive, args.output)
+        else:
+            run(args.processed_dir, args.archive, args.prior, args.output)
 
 
 if __name__ == "__main__":
