@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from pathsnap.decoder import Candidate, Observation, decode
+from pathsnap.evaluator import available_evaluator_trips, load_evaluator_trip
 from pathsnap.evaluation import evaluate
 from pathsnap.scoring import DISPLAY_NAMES, score_candidates
 from pathsnap.routing import Position, RoadGraph
@@ -22,6 +23,7 @@ DATA = Path(__file__).resolve().parents[1] / "data"
 OBSERVATIONS = DATA / "processed/observations.csv.gz"
 ARCHIVE = Path(os.environ.get("PATHSNAP_DATA_ZIP", DATA / "raw/Student folder.zip")).expanduser()
 SPLIT = "student_test"
+EVALUATOR_ARCHIVE = os.environ.get("PATHSNAP_EVALUATOR_ZIP", "").strip()
 # Per-trip bounded cache; 0 disables it to reproduce the uncached baseline.
 SHORTEST_CACHE_SIZE = int(os.environ.get("PATHSNAP_SHORTEST_CACHE_SIZE", "20000"))
 if SHORTEST_CACHE_SIZE < 0:
@@ -39,6 +41,7 @@ app.add_middleware(
 class PredictionRequest(BaseModel):
     trip_id: str
     model: str = "distance"
+    split: str = "student_test"
 
 
 def trip_ids():
@@ -48,35 +51,54 @@ def trip_ids():
 
 @app.get("/trips")
 def list_trips():
-    return {"trip_ids": trip_ids(), "models": DISPLAY_NAMES}
+    return {
+        "trip_ids": trip_ids(), "evaluator_trip_ids": (
+            available_evaluator_trips(EVALUATOR_ARCHIVE) if EVALUATOR_ARCHIVE else []
+        ),
+        "final_model_configured": "final" in DISPLAY_NAMES,
+        "models": DISPLAY_NAMES,
+    }
 
 
 @app.post("/predict")
 def predict(request: PredictionRequest):
     trip_id = request.trip_id
-    if trip_id not in trip_ids():
-        raise HTTPException(404, "Unknown student-test trip")
+    if request.split not in ("student_test", "evaluator"):
+        raise HTTPException(422, "Unknown split; select student_test or evaluator")
     if request.model not in DISPLAY_NAMES:
         raise HTTPException(422, "Unknown scoring model")
-    logger.info("Decoding development trip %s with %s", trip_id, request.model)
+    if request.split == "student_test":
+        if trip_id not in trip_ids():
+            raise HTTPException(404, "Unknown student-test trip")
+    else:
+        if not EVALUATOR_ARCHIVE:
+            raise HTTPException(503, "PATHSNAP_EVALUATOR_ZIP must be configured on Laptop 1")
+        if request.model in ("distance", "logistic_regression", "knn"):
+            raise HTTPException(422, "Evaluator trips require live trained-model inference")
+    logger.info("Decoding trip %s split=%s with %s", trip_id, request.split, request.model)
     start = perf_counter()
 
     try:
-        track, nodes, arcs = load_trip(OBSERVATIONS, ARCHIVE, SPLIT, trip_id)
-        rows = pq.read_table(
-            DATA / "processed/candidates_student_test.parquet",
-            filters=[("trip_id", "=", trip_id)],
-        ).to_pandas()
-    except (OSError, ValueError):
-        logger.exception("Could not load inputs for trip %s", trip_id)
-        raise HTTPException(503, "Trip data could not be loaded. Check the server setup.")
+        if request.split == "student_test":
+            track, nodes, arcs = load_trip(OBSERVATIONS, ARCHIVE, SPLIT, trip_id)
+            rows = pq.read_table(
+                DATA / "processed/candidates_student_test.parquet",
+                filters=[("split", "=", SPLIT), ("trip_id", "=", trip_id)],
+            ).to_pandas()
+        else:
+            track, nodes, arcs, rows = load_evaluator_trip(EVALUATOR_ARCHIVE, trip_id)
+    except KeyError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except (OSError, ValueError, EOFError) as exc:
+        logger.exception("Could not load trip %s in split %s", trip_id, request.split)
+        raise HTTPException(503, "Trip data invalid or unavailable: " + str(exc)) from exc
 
     score_start = perf_counter()
     try:
         score_name, scores = score_candidates(rows, model=request.model, trip_id=trip_id)
-    except (ValueError, FileNotFoundError, OSError) as exc:
+    except (ValueError, FileNotFoundError, OSError, ImportError, TypeError) as exc:
         logger.exception("Invalid or unavailable candidate score export for %s", trip_id)
-        raise HTTPException(503, "Candidate score export unavailable or invalid: " + str(exc)) from exc
+        raise HTTPException(503, "Trained scorer unavailable or invalid: " + str(exc)) from exc
     scores = np.asarray(scores, dtype=float)
     if scores.shape != (len(rows),) or not np.all((scores >= 0) & (scores <= 1)):
         raise HTTPException(500, "Scorer must return one finite score in [0, 1] per candidate")
@@ -96,20 +118,22 @@ def predict(request: PredictionRequest):
     decode_start = perf_counter()
     result = decode(graph, observations)
     decode_seconds = perf_counter() - decode_start
-    try:
-        labels = pq.read_table(
-            DATA / "processed/reference_labels_student_test.parquet",
-            filters=[("trip_id", "=", trip_id)],
-            columns=["obs_id", "alignment_status", "reference_arc_id"],
-        ).to_pandas()
-    except (OSError, ValueError):
-        logger.exception("Could not load evaluation labels for trip %s", trip_id)
-        raise HTTPException(503, "Evaluation labels could not be loaded.")
-    if not labels.obs_id.is_unique or set(labels.obs_id) != set(track.obs_id):
-        raise HTTPException(503, "Evaluation labels do not match the trip observations.")
-    evaluation = evaluate(labels, candidates, result.arcs_by_observation)
+    evaluation = None
+    if request.split == "student_test":
+        try:
+            labels = pq.read_table(
+                DATA / "processed/reference_labels_student_test.parquet",
+                filters=[("split", "=", SPLIT), ("trip_id", "=", trip_id)],
+                columns=["obs_id", "alignment_status", "reference_arc_id"],
+            ).to_pandas()
+        except (OSError, ValueError) as exc:
+            logger.exception("Could not load student-test labels for %s", trip_id)
+            raise HTTPException(503, "Student-test evaluation labels unavailable") from exc
+        if not labels.obs_id.is_unique or set(labels.obs_id) != set(track.obs_id):
+            raise HTTPException(503, "Evaluation labels do not match trip observations")
+        evaluation = evaluate(labels, candidates, result.arcs_by_observation)
     map_start = perf_counter()
-    trip_map, _ = render_trip(track, nodes, arcs, SPLIT, trip_id,
+    trip_map, _ = render_trip(track, nodes, arcs, request.split, trip_id,
                               route_segments=result.segments)
     map_html = trip_map.get_root().render()
     map_seconds = perf_counter() - map_start
@@ -120,6 +144,7 @@ def predict(request: PredictionRequest):
 
     return {
         "trip_id": trip_id,
+        "split": request.split,
         "scoring": score_name,
         "scoring_model": request.model,
         "arcs_by_observation": result.arcs_by_observation,
@@ -138,7 +163,7 @@ def predict(request: PredictionRequest):
             "shortest_cache_hits": graph.shortest_cache_hits,
             "cache_size": SHORTEST_CACHE_SIZE,
         },
-        "accuracy": evaluation["viterbi_accuracy"],
+        "accuracy": evaluation["viterbi_accuracy"] if evaluation is not None else None,
         "evaluation": evaluation,
         "map_html": map_html,
     }
