@@ -82,7 +82,7 @@ def assemble(track, candidates, scores):
     return timeline, by_obs
 
 
-def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_file, *, decoder_kwargs=None):
+def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_file, *, decoder_kwargs=None, cache_size=0):
     t0 = perf_counter()
     track, nodes, arcs = load_trip(data / "observations.csv.gz", archive, SPLIT, trip_id)
     rows = pq.read_table(candidates_file, filters=[("split", "=", SPLIT), ("trip_id", "=", trip_id)]).to_pandas()
@@ -103,7 +103,7 @@ def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_
     if rows.empty or not rows["trip_id"].eq(trip_id).all():
         raise ValueError(f"Wrong or empty candidate trip {trip_id}")
     obs, by_obs = assemble(track, rows, scores)
-    graph = RoadGraph(nodes, arcs)
+    graph = RoadGraph(nodes, arcs, shortest_cache_size=cache_size)
 
     t_decode = perf_counter()
     reconstructed = decode(graph, obs, **(decoder_kwargs or {}))
@@ -145,6 +145,10 @@ def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_
         "gps_gaps": int(track.gap_before.fillna(False).sum()),
         "unmatched_prediction_observations": sum(v is None for v in reconstructed.arcs_by_observation.values()),
         "matched_observations": sum(v is not None for v in reconstructed.arcs_by_observation.values()),
+        "routing_seconds": graph.route_seconds,
+        "dijkstra_seconds": graph.shortest_search_seconds,
+        "shortest_searches": graph.shortest_searches,
+        "cache_hits": graph.shortest_cache_hits,
         "score_seconds": score_seconds,
         "decode_seconds": decode_seconds,
         "end_to_end_seconds": perf_counter() - t0,
@@ -176,6 +180,10 @@ def summarize(rows):
             "route_breaks": sums("route_breaks"),
             "gps_gaps": sums("gps_gaps"),
             "unmatched_prediction_observations": sums("unmatched_prediction_observations"),
+            "routing_seconds": sums("routing_seconds"),
+            "dijkstra_seconds": sums("dijkstra_seconds"),
+            "shortest_searches": sums("shortest_searches"),
+            "cache_hits": sums("cache_hits"),
             "score_seconds": sums("score_seconds"), "decode_seconds": sums("decode_seconds"),
             "end_to_end_seconds": sums("end_to_end_seconds"),
             "trips_improved": sum(r["viterbi_correct"] > r["top1_correct"] for r in sample),
@@ -242,6 +250,8 @@ def report_markdown(summary, per_trip):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--params-file", type=Path, default=None, help="Training-selected Viterbi parameters JSON")
+    parser.add_argument("--cache-size", type=int, default=0, help="Per-trip bounded shortest-path cache entries")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed")
     parser.add_argument("--archive", type=Path, default=Path(os.environ.get(
         "PATHSNAP_DATA_ZIP", ROOT / "data/raw/Student folder.zip",
@@ -262,12 +272,18 @@ def main():
             raise FileNotFoundError(f"Required project export unavailable: {path}")
 
     args.output.mkdir(parents=True, exist_ok=True)
+    if args.cache_size < 0:
+        raise ValueError("Cache size must be >= 0")
+    params = json.loads(args.params_file.read_text()) if args.params_file else {}
+    allowed = {"gap_seconds", "beta_m", "max_speed_mps", "routing_slack_m"}
+    if set(params) - allowed:
+        raise ValueError("Unexpected decoder parameters")
     rows = []
     for model in MODELS:
         print(f"\nScorer: {model}", flush=True)
         for trip_id in trips:
             row = one_trip(model, trip_id, args.processed, args.archive,
-                           candidates_file, labels_file, SCORE_FILES[model])
+                           candidates_file, labels_file, SCORE_FILES[model], decoder_kwargs=params, cache_size=args.cache_size)
             rows.append(row)
             write_csv(args.output / "per_trip.csv", rows)  # save partial measurements
             print(
@@ -285,7 +301,8 @@ def main():
             "python": __import__("sys").version,
             "numpy": np.__version__, "pandas": pd.__version__,
             "pyarrow": __import__("pyarrow").__version__,
-            "split": SPLIT, "models": MODELS,
+            "split": SPLIT, "models": MODELS, "cache_size": args.cache_size,
+            "chosen_decoder_overrides": params,
             "route_breaks_definition": "max(0, number_of_decoded_segments-1) per trip; includes starts after GPS gaps, missing candidates and unreachable directed transitions",
             "decoder_parameters": {
                 "gap_seconds": 5.0, "beta_m": 30.0,
