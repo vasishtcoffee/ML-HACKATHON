@@ -253,3 +253,17 @@ python scripts/visualize_baselines.py
 The [baseline experiment report](experiments/baselines/README.md) documents the
 Logistic Regression and KNN configurations, real metrics, plots, trained model
 artifacts, and the candidate score format for route reconstruction.
+
+## Train the MLP classifier
+
+Use the same preprocessing outputs and published trip folds as the baseline
+experiments. From the repository root:
+
+```sh
+python -m pip install -r requirements/requirements-baselines.txt
+python scripts/train_mlp.py
+python scripts/visualize_mlp.py
+```
+
+See the [MLP experiment report](experiments/mlp/README.md) for training settings,
+per-epoch and held-out results, plots, model artifact, and candidate score export.
