@@ -1,0 +1,24 @@
+{
+  "objective": "mean three-fold aligned observation top-1 with candidate misses counted",
+  "sampler": "Optuna TPE",
+  "startup_trials": 3,
+  "trials_per_model": 8,
+  "seed": 42,
+  "knn_fixed_neighbor_pool": 51,
+  "features": [
+    "distance_to_arc_m",
+    "candidate_rank",
+    "fraction_along_arc",
+    "offset_from_arc_start_m"
+  ],
+  "student_test_used_for_selection": false,
+  "threads": 4,
+  "dependencies": {
+    "optuna": "5.1.0",
+    "scikit-learn": "1.7.2",
+    "numpy": "2.2.0",
+    "pandas": "2.2.3",
+    "joblib": "1.5.2",
+    "pyarrow": "22.0.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "selected_trial": 3,
+  "selected_parameters": {
+    "C": 68.53570511104294,
+    "positive_weight": 1.0
+  },
+  "baseline_trial_cv_top1": 0.5611212473705371,
+  "selected_trial_cv_top1": 0.5611286385174215,
+  "trials_completed": 8,
+  "distinct_configurations": 8,
+  "search_seconds": 31.293769899988547
+}

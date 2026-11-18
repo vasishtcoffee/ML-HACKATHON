@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 from threadpoolctl import threadpool_limits
 
@@ -13,8 +14,29 @@ FEATURES = [
 ]
 
 
+def neighbor_probabilities(distances, labels, k, weighting):
+    labels = labels[:, :k]
+    if weighting == "uniform":
+        positive_votes = labels.sum(axis=1)
+    else:
+        distances = distances[:, :k]
+        zero = distances == 0
+        weights = np.divide(1.0, distances, out=np.zeros_like(distances), where=~zero)
+        weights[zero.any(axis=1)] = zero[zero.any(axis=1)]
+        positive_votes = k * (weights * labels).sum(axis=1) / weights.sum(axis=1)
+    return (positive_votes + 1) / (k + 2)
+
+
 def score_candidates(model, candidates):
     x = candidates.loc[:, model["features"]].to_numpy(dtype="float64")
+    if "neighbor_index" in model:
+        distances, indexes = model["neighbor_index"].query(
+            model["scaler"].transform(x), k=model["neighbor_pool"]
+        )
+        params = model["parameters"]
+        return neighbor_probabilities(
+            distances, model["neighbor_targets"][indexes], params["n_neighbors"], params["weights"]
+        )
     score = model["pipeline"].predict_proba(x)[:, 1]
     if model["id"] == "knn":
         k = model["parameters"]["n_neighbors"]
@@ -24,7 +46,7 @@ def score_candidates(model, candidates):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("model", type=Path, help="Trusted joblib file created by train_baselines.py")
+    parser.add_argument("model", type=Path, help="Trusted PathSnap joblib model")
     parser.add_argument("candidates", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
