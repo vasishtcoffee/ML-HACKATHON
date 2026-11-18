@@ -76,10 +76,13 @@
       const percent = value => value == null ? 'Unavailable' : (100 * value).toFixed(1) + '%';
       status.textContent = data.scoring + ' · ' + data.matched_observations + '/' +
         data.observations + ' observations matched · ' + data.route_segments.length +
-        ' route segments · ' + data.runtime_seconds + ' s · Top-1: ' + percent(e.top1_accuracy) +
+        ' route segments (' + Math.max(0, data.route_segments.length - 1) + ' breaks) · ' +
+        data.runtime_seconds + ' s server total · Top-1: ' + percent(e.top1_accuracy) +
         ' · Viterbi: ' + percent(e.viterbi_accuracy) + ' · ' + e.aligned +
         ' aligned, including ' + e.candidate_misses + ' candidate misses. Excluded ' +
-        e.ambiguous_excluded + ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.';
+        e.ambiguous_excluded + ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.' +
+        (data.timings ? ' Routing: ' + data.timings.road_routing_seconds.toFixed(2) +
+        ' s · Map: ' + data.timings.map_render_seconds.toFixed(2) + ' s.' : '');
     } catch (error) {
       status.textContent = 'Decoding failed. ' + error.message;
     } finally { connect.disabled = trips.disabled = model.disabled = decode.disabled = false; }

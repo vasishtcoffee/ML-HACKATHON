@@ -1,0 +1,60 @@
+name: PathSnap training-only Viterbi tuning and demo profiling
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - pathsnap/viterbi-tuning-speed
+    paths:
+      - .github/workflows/viterbi-tuning-speed.yml
+      - tests/test_routing_cache.py
+      - scripts/tune_viterbi.py
+
+permissions:
+  contents: read
+
+jobs:
+  tune-and-profile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout tracked datasets, scores and source
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Dependencies
+        run: |
+          python -m pip install numpy==2.2.0 pandas==2.2.3 pyarrow==22.0.0 folium==1.0.0
+      - name: Route regression suite (including cache)
+        run: python -m unittest discover -s tests -v
+      - name: Baseline 20 trained model comparisons (uncached defaults)
+        run: |
+          set -o pipefail
+          python scripts/benchmark_trained_decoding.py --output experiments/viterbi_tuning/student_baseline 2>&1 | tee baseline.log
+      - name: Select decoder parameters using training trips only
+        run: |
+          set -o pipefail
+          python scripts/tune_viterbi.py 2>&1 | tee tuning.log
+      - name: Holdout evaluation of selected settings on all ten student-test trips
+        run: |
+          set -o pipefail
+          python scripts/benchmark_trained_decoding.py --params-file experiments/viterbi_tuning/chosen.json --output experiments/viterbi_tuning/student_tuned 2>&1 | tee tuned.log
+      - name: Profile routing, decoding, map; prove cached route identical
+        run: |
+          set -o pipefail
+          python scripts/profile_trip.py 2>&1 | tee profile.log
+      - name: Upload exact results and logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pathsnap-viterbi-tuning-benchmark
+          path: |
+            experiments/viterbi_tuning/
+            baseline.log
+            tuning.log
+            tuned.log
+            profile.log
+          if-no-files-found: warn
+          retention-days: 30
