@@ -1,5 +1,6 @@
 """Build baseline comparison figures and an offline Folium evaluation map."""
 import argparse
+from html import escape
 import os
 from pathlib import Path
 from zipfile import ZipFile
@@ -12,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from score_baseline import KEY
-from train_baselines import MODELS, OBS_KEY, top_candidates
+from train_baselines import OBS_KEY, top_candidates
 from view_trip import ROOT, load_trip
 
 
@@ -20,9 +21,10 @@ LABELS = {"logistic_regression": "Logistic Regression", "knn": "KNN"}
 COLORS = {"logistic_regression": "#b45309", "knn": "#7e22ce"}
 
 
-def comparison_figures(metrics, output):
+def comparison_figures(metrics, output, labels=LABELS, palette=COLORS):
+    models = list(labels)
     cv = metrics.loc[metrics["phase"].eq("cv")]
-    test = metrics.loc[metrics["phase"].eq("student_test")].set_index("model").loc[list(MODELS)]
+    test = metrics.loc[metrics["phase"].eq("student_test")].set_index("model").loc[models]
     fig, axes = plt.subplots(2, 2, figsize=(11, 7), layout="constrained")
     titles = [
         ("Grouped CV macro F1", "macro_f1", "cv"),
@@ -30,13 +32,13 @@ def comparison_figures(metrics, output):
         ("Student-test top-1 accuracy", "top1_accuracy", "test"),
         ("Student-test candidate log loss", "candidate_log_loss", "test"),
     ]
-    names = [LABELS[name] for name in MODELS]
-    colors = [COLORS[name] for name in MODELS]
+    names = list(labels.values())
+    colors = [palette[name] for name in models]
     for ax, (title, metric, phase) in zip(axes.ravel(), titles):
         if phase == "cv":
             grouped = cv.groupby("model")[metric]
-            values = grouped.mean().loc[list(MODELS)]
-            error = grouped.std().loc[list(MODELS)]
+            values = grouped.mean().loc[models]
+            error = grouped.std().loc[models]
         else:
             values = test[metric]
             error = None
@@ -49,8 +51,8 @@ def comparison_figures(metrics, output):
     fig.savefig(output / "comparison.png", dpi=160)
     plt.close(fig)
 
-    fig, axes = plt.subplots(1, len(MODELS), figsize=(10, 4.4), layout="constrained")
-    for ax, (name, row) in zip(axes, test.iterrows()):
+    fig, axes = plt.subplots(1, len(models), figsize=(5 * len(models), 4.4), squeeze=False, layout="constrained")
+    for ax, (name, row) in zip(axes.ravel(), test.iterrows()):
         counts = np.array([[row.tn, row.fp], [row.fn, row.tp]], dtype=int)
         shares = counts / counts.sum(axis=1, keepdims=True)
         ax.imshow(shares, vmin=0, vmax=1, cmap="Blues")
@@ -59,12 +61,12 @@ def comparison_figures(metrics, output):
                     color="white" if shares[i, j] > 0.55 else "#10243c")
         ax.set(xticks=[0, 1], yticks=[0, 1], xticklabels=["Other", "Reference"],
                yticklabels=["Other", "Reference"], xlabel="Predicted candidate class",
-               ylabel="Actual candidate class", title=LABELS[name])
+               ylabel="Actual candidate class", title=labels[name])
     fig.savefig(output / "student_test_confusion.png", dpi=160)
     plt.close(fig)
 
 
-def evaluation_map(processed, archive_path, output, trip_id):
+def evaluation_map(processed, archive_path, output, trip_id, labels=LABELS, palette=COLORS):
     split = "student_test"
     track, nodes, arcs = load_trip(processed / "observations.csv.gz", archive_path, split, trip_id)
     gps = track[["latitude", "longitude"]].to_numpy()
@@ -100,21 +102,25 @@ def evaluation_map(processed, archive_path, output, trip_id):
         processed / f"candidates_{split}.parquet", columns=KEY + ["candidate_rank"],
         filters=[("trip_id", "=", trip_id)],
     )
-    for name in MODELS:
+    for index, (name, label) in enumerate(labels.items()):
         scores = pd.read_parquet(output / f"{name}_student_scores.parquet",
                                  filters=[("trip_id", "=", trip_id)])
         scored = candidates.merge(scores, on=KEY, validate="one_to_one")
         winners = top_candidates(scored, scored["score"].to_numpy())
         ordered = track[OBS_KEY].merge(winners, on=OBS_KEY, how="left", validate="one_to_one")
         arc_ids = ordered["arc_id"].dropna().astype(int).unique()
-        layer = folium.FeatureGroup(name=LABELS[name] + " top-1 arcs", show=name == "logistic_regression")
+        layer = folium.FeatureGroup(name=label + " top-1 arcs", show=index == 0)
         if len(arc_ids):
-            folium.PolyLine(segments[arc_ids].tolist(), color=COLORS[name], weight=3,
+            folium.PolyLine(segments[arc_ids].tolist(), color=palette[name], weight=3,
                             opacity=.9).add_to(layer)
         layer.add_to(report_map)
 
     report_map.fit_bounds([lo.tolist(), hi.tolist()])
     folium.LayerControl(collapsed=False).add_to(report_map)
+    model_legend = "".join(
+        f'<span style="color:{palette[name]}">&#9473;</span> {escape(label)}<br>'
+        for name, label in labels.items()
+    )
     panel = f"""
     <aside style="position:fixed;z-index:1000;bottom:24px;left:16px;background:white;
                   padding:12px 15px;border:1px solid #cbd5e1;border-radius:6px;font:14px system-ui">
@@ -122,8 +128,7 @@ def evaluation_map(processed, archive_path, output, trip_id):
       <span style="color:#64748b">━</span> Road network<br>
       <span style="color:#1d4ed8">●</span> Measured GPS<br>
       <span style="color:#15803d">━</span> Reference route<br>
-      <span style="color:#b45309">━</span> Logistic Regression<br>
-      <span style="color:#7e22ce">━</span> KNN
+      {model_legend}
     </aside>"""
     if not trip_id.isascii() or not trip_id.isdecimal():
         raise ValueError("Expected a numeric trip ID.")

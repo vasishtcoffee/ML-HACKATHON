@@ -1,0 +1,32 @@
+{
+  "model": "mlp",
+  "features": [
+    "distance_to_arc_m",
+    "candidate_rank",
+    "fraction_along_arc",
+    "offset_from_arc_start_m"
+  ],
+  "candidate_threshold": 0.5,
+  "epochs": 10,
+  "parameters": {
+    "hidden_layer_sizes": [
+      32,
+      16
+    ],
+    "activation": "relu",
+    "solver": "adam",
+    "alpha": 0.0001,
+    "batch_size": 1024,
+    "learning_rate_init": 0.001,
+    "early_stopping": false,
+    "random_state": 42
+  },
+  "versions": {
+    "scikit-learn": "1.7.2",
+    "numpy": "2.2.0",
+    "pandas": "2.2.3",
+    "scipy": "1.16.2",
+    "joblib": "1.5.2",
+    "pyarrow": "22.0.0"
+  }
+}

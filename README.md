@@ -269,3 +269,17 @@ configuration and comparison on the same trip folds as Random Forest.
 
 See [the tuning workflow](docs/tree_tuning.md) for commands, selection rules and
 limitations. Generate the recorded comparison with `python scripts/compare_tree_models.py`.
+
+## Train the MLP classifier
+
+Use the same preprocessing outputs and published trip folds as the baseline
+experiments. From the repository root:
+
+```sh
+python -m pip install -r requirements/requirements-baselines.txt
+python scripts/train_mlp.py
+python scripts/visualize_mlp.py
+```
+
+See the [MLP experiment report](experiments/mlp/README.md) for training settings,
+per-epoch and held-out results, plots, model artifact, and candidate score export.
