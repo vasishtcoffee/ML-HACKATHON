@@ -1,0 +1,13 @@
+{
+  "format": "UBJSON",
+  "exported_with": "XGBoost 3.4.1",
+  "loaded_with": "XGBoost 3.4.1 CPU",
+  "trips_checked": 10,
+  "max_absolute_probability_difference_from_GPU_export": 6.556510925292969e-07,
+  "changed_top1_decisions": 0,
+  "tolerance": {
+    "rtol": 2e-05,
+    "atol": 2e-06
+  },
+  "note": "CPU/GPU floating-point prediction variation is expected; every top-1 decision and live HMM accuracy count is checked."
+}

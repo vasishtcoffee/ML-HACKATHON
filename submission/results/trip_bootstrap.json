@@ -1,0 +1,20 @@
+{
+  "model": "xgboost_tuned",
+  "replicates": 5000,
+  "sampling_unit": "complete student-test trip, paired resampling",
+  "percentile_95_intervals": {
+    "top1_accuracy": [
+      0.7868959472306651,
+      0.9296052418315277
+    ],
+    "hmm_accuracy": [
+      0.825261543389446,
+      0.9503442813568306
+    ],
+    "hmm_minus_top1": [
+      0.006973303653498459,
+      0.04464857915340689
+    ]
+  },
+  "limitation": "Exploratory uncertainty with only ten development trips; not reserved-evaluation confidence bounds."
+}

@@ -1,0 +1,13 @@
+{
+  "selected_model": "xgboost_tuned",
+  "cv_top1": {
+    "logistic": 0.860939373977811,
+    "knn": 0.8561664102070538,
+    "forest": 0.8633361335293728,
+    "xgboost": 0.864612592864569,
+    "mlp": 0.8635030637889974,
+    "xgboost_tuned": 0.8649853690836387
+  },
+  "reason": "Highest mean three-fold held-out-trip top-1; student-test scores not used for selection",
+  "optimism_note": "Tuned CV is used both for search and selection, not an unbiased nested-CV estimate. Student-test remains the development comparison."
+}

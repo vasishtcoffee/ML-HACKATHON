@@ -1,0 +1,4 @@
+              observations  observations_without_candidates  candidate_rows
+split                                                                      
+student_test         19160                                0          209582
+train               208417                            18229         1869567

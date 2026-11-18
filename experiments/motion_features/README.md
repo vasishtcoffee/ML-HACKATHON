@@ -1,7 +1,7 @@
 # Direction and movement experiments
 
-This experiment records the feature-development runs. See the
-[root comparison](../../README.md#model-comparison) for the final five-family ranking.
+This experiment records the earlier feature-development runs. See the
+[submission comparison](../../README.md#model-comparison) for the delivered model results.
 
 ## Changes to the classifier inputs
 

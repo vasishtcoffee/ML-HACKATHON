@@ -1,0 +1,26 @@
+{
+  "best_trial": 5,
+  "best_params": {
+    "n_estimators": 120,
+    "max_depth": 6,
+    "learning_rate": 0.08874864564300226,
+    "min_child_weight": 32,
+    "subsample": 0.8281818212572875,
+    "colsample_bytree": 0.6569131140207886,
+    "reg_lambda": 3.754149821003882
+  },
+  "cv_top1": 0.8649853690836387,
+  "trials": 12,
+  "sampler": "TPE",
+  "startup_trials": 4,
+  "search_space": {
+    "n_estimators": "120..480 step 60",
+    "max_depth": "3..8",
+    "learning_rate": "log 0.02..0.2",
+    "min_child_weight": "4..64",
+    "subsample": "0.65..1",
+    "colsample_bytree": "0.65..1",
+    "reg_lambda": "log 0.5..30"
+  },
+  "selected_on": "training trips only"
+}

@@ -1,6 +1,10 @@
-# Consolidated Viterbi benchmark
+# Earlier development Viterbi benchmark
 
-The [model comparison in the root README](../../README.md#model-comparison)
+This benchmark documents the earlier KNN selection. The
+[submission comparison](../../README.md#model-comparison) uses a newer training
+pipeline and records the selection of tuned XGBoost.
+
+The [earlier development comparison](https://github.com/vasishtcoffee/ML-HACKATHON/blob/e5121e7fb8ad4c163bf7354ab0ccddcbeabc91f8/README.md#model-comparison)
 ranks the highest-scoring saved variant from each of the five classifier
 families. [Aggregate results](aggregate.csv) and [per-trip results](per_trip.csv)
 include all 13 tested variants.

@@ -1,0 +1,16 @@
+{
+  "id": "muchat007/pathsnap-original-gpu-complete-20261118",
+  "title": "PathSnap Original GPU Complete 20261118",
+  "code_file": "pathsnap_gpu.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "muchat007/pathsnap-private-gpu-input-20261118"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

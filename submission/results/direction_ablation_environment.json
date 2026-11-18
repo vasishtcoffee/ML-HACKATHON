@@ -1,0 +1,8 @@
+{
+  "python": "3.11.16",
+  "xgboost": "3.2.0",
+  "numpy": "2.2.0",
+  "device": "CPU",
+  "comparison": "Both no-direction and full-direction variants use exactly the same backend, parameters and trip folds",
+  "purpose": "Feature diagnostic, not final model selection or deployment"
+}

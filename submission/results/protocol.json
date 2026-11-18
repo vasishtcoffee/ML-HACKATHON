@@ -1,0 +1,52 @@
+{
+  "seed": 261118,
+  "features": [
+    "distance_m",
+    "log_rank",
+    "fraction",
+    "log_length",
+    "heading_cos",
+    "heading_abs_sin",
+    "heading_known",
+    "log_speed",
+    "log_candidates",
+    "distance_minus_best",
+    "relative_distance",
+    "near_start",
+    "near_end"
+  ],
+  "folds": 3,
+  "selection_objective": "mean grouped-CV observation top-1 accuracy; candidate misses count as errors",
+  "binary_metrics": "Aligned observations with reference inside candidates, threshold 0.5; binary candidate macro F1, not arc-class F1",
+  "knn_sample": "Uniform without replacement, at most 160000 candidate rows from each fit partition",
+  "evaluator_data_read": false,
+  "configs": {
+    "logistic": {
+      "C": 1.0
+    },
+    "knn": {
+      "n_neighbors": 25,
+      "max_fit_rows": 160000
+    },
+    "forest": {
+      "n_estimators": 80,
+      "max_depth": 16,
+      "min_samples_leaf": 10
+    },
+    "xgboost": {
+      "n_estimators": 240,
+      "max_depth": 5,
+      "learning_rate": 0.07,
+      "min_child_weight": 12,
+      "subsample": 0.85,
+      "colsample_bytree": 0.9,
+      "reg_lambda": 5.0
+    },
+    "mlp": {
+      "epochs": 12,
+      "learning_rate": 0.001,
+      "weight_decay": 0.0001,
+      "batch_size": 16384
+    }
+  }
+}

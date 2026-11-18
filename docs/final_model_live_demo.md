@@ -1,8 +1,11 @@
 # Run the PathSnap demo
 
+This page documents the earlier KNN development demo. For the submitted
+XGBoost demo, use the [current launch instructions](../README.md#run-the-submitted-demo).
+
 The API runs the selected KNN with GPS motion features, then uses HMM/Viterbi
 to reconstruct a directed route. The checkout contains the trained model and
-student-test files. The [model comparison](../README.md#model-comparison)
+student-test files. The [earlier model comparison](https://github.com/vasishtcoffee/ML-HACKATHON/blob/e5121e7fb8ad4c163bf7354ab0ccddcbeabc91f8/README.md#model-comparison)
 records the results used to select this model.
 
 ## Laptop 1 · FastAPI

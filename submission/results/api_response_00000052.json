@@ -1,0 +1,22 @@
+{
+  "trip_id": "00000052",
+  "split": "student_test",
+  "model": "xgboost",
+  "observations": 262,
+  "matched_observations": 262,
+  "evaluation": {
+    "aligned": 203,
+    "ambiguous_excluded": 59,
+    "unmatched_excluded": 0,
+    "candidate_misses": 0,
+    "top1_correct": 201,
+    "viterbi_correct": 203,
+    "top1_accuracy": 0.9901477832512315,
+    "viterbi_accuracy": 1.0
+  },
+  "runtime_seconds": 0.298,
+  "timings": {
+    "features_and_inference_seconds": 0.0268,
+    "decode_seconds": 0.077
+  }
+}

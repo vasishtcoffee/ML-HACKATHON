@@ -1,0 +1,2 @@
+# Keep the delivered files identical to the SHA-256 manifest on every platform.
+/submission/** -text
