@@ -264,3 +264,8 @@ same candidate tables and trip folds as the Logistic Regression and KNN baseline
 
 See [XGBoost training and results](docs/xgboost.md) for dependencies, the fixed
 configuration and comparison on the same trip folds as Random Forest.
+
+## Tree-model tuning
+
+See [the tuning workflow](docs/tree_tuning.md) for commands, selection rules and
+limitations. Generate the recorded comparison with `python scripts/compare_tree_models.py`.

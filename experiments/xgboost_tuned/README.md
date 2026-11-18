@@ -10,6 +10,7 @@ Candidate macro F1 decreased from 0.749448 to 0.708116. This is a small ranking
 change with a substantial threshold-metric tradeoff, not a general improvement.
 No maximum accuracy claim is supported by six trials.
 
-The raw archive became available during this run, so continuity was computed
-for the tuned model. Untuned continuity is missing; these must not be compared.
+The raw archive became available locally, so continuity was computed for the
+tuned model. The current comparison also contains untuned XGBoost continuity;
+Random Forest continuity is missing. Inspect each run configuration before comparing.
 The model, scores, trial history, parameters and metrics are preserved here.
