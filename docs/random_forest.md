@@ -7,7 +7,7 @@ match the reference-aligned arc for this observation?
 ## Reproduce
 
 ```bash
-python -m pip install -r requirements-baselines.txt
+python -m pip install -r requirements/requirements-baselines.txt
 python scripts/train_baselines.py --models random_forest --output experiments/random_forest
 ```
 

@@ -28,6 +28,10 @@ SEED = 42
 N_FOLDS = 5
 THRESHOLD = 0.5
 MODELS = {
+    "xgboost": {"n_estimators": 200, "max_depth": 6, "learning_rate": 0.05,
+                "min_child_weight": 10, "subsample": 0.8, "colsample_bytree": 0.8,
+                "objective": "binary:logistic", "eval_metric": "logloss",
+                "tree_method": "hist", "n_jobs": 4, "random_state": SEED},
     "random_forest": {"n_estimators": 100, "max_depth": 16, "min_samples_leaf": 10,
                       "max_features": "sqrt", "n_jobs": 4, "random_state": SEED},
     "logistic_regression": {"C": 1.0, "max_iter": 200, "solver": "lbfgs", "random_state": SEED},
@@ -71,12 +75,16 @@ def fit_model(name, candidates):
     eligible = candidates.loc[candidates["usable_for_training"]]
     x = eligible[FEATURES].to_numpy(dtype="float64")
     y = eligible["positive"].to_numpy(dtype=np.int8)
-    estimator = (
-        LogisticRegression(**MODELS[name]) if name == "logistic_regression"
-        else RandomForestClassifier(**MODELS[name]) if name == "random_forest"
-        else KNeighborsClassifier(**MODELS[name])
-    )
-    pipeline = (make_pipeline(estimator) if name == "random_forest"
+    if name == "xgboost":
+        from xgboost import XGBClassifier
+        estimator = XGBClassifier(**MODELS[name])
+    elif name == "random_forest":
+        estimator = RandomForestClassifier(**MODELS[name])
+    elif name == "logistic_regression":
+        estimator = LogisticRegression(**MODELS[name])
+    else:
+        estimator = KNeighborsClassifier(**MODELS[name])
+    pipeline = (make_pipeline(estimator) if name in ("random_forest", "xgboost")
                 else make_pipeline(StandardScaler(), estimator))
     start = perf_counter()
     pipeline.fit(x, y)
@@ -176,7 +184,8 @@ def run(processed, archive, output, models=None):
         "configurations": {name: MODELS[name] for name in models},
         "continuity_available": graphs is not None,
         "versions": {name: version(name) for name in
-                     ("scikit-learn", "numpy", "pandas", "scipy", "joblib", "pyarrow")},
+                     (("scikit-learn", "numpy", "pandas", "scipy", "joblib", "pyarrow")
+                      + (("xgboost",) if "xgboost" in models else ()))},
     }
     (output / "config.json").write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 

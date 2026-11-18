@@ -259,3 +259,8 @@ artifacts, and the candidate score format for route reconstruction.
 See [the Random Forest notes](docs/random_forest.md) for the training command,
 feature choices, validation protocol and score interpretation. The run uses the
 same candidate tables and trip folds as the Logistic Regression and KNN baselines.
+
+## XGBoost experiment
+
+See [XGBoost training and results](docs/xgboost.md) for dependencies, the fixed
+configuration and comparison on the same trip folds as Random Forest.
