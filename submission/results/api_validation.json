@@ -1,0 +1,7 @@
+{
+  "unknown_trip_status": 404,
+  "invalid_id_status": 422,
+  "reference_fields_exposed": false,
+  "successful_trips": 10,
+  "live_metrics_match_recorded_route_experiments": true
+}

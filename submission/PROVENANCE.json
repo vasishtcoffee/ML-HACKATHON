@@ -1,0 +1,96 @@
+{
+  "ai_assistance": "Codex-assisted implementation, execution and report preparation; no claim of unaided student authorship",
+  "adapted_local_components": [
+    {
+      "file": "scripts/generate_candidates.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "7aa9fbc8b5b6d05ebcc165563ec6c84e7b289484bbcbf76f02616f35a28199e5",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "scripts/generate_reference_labels.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "7a59bd58deff6e9da6f644c7c1ff414cc355515800a931ddd0bb9afb4c611971",
+      "unchanged_from_local_original": false
+    },
+    {
+      "file": "scripts/view_trip.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "dec4ffdd0662b0a55b74badc4334d78a9a3c9bf9a549bcdba0d2e7c0cf4b2920",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "pathsnap/routing.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "ffc22ccd7eac8cf9f314f35e2ef37a89081bba840e4b76398bc377d9b29bc5e7",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "pathsnap/decoder.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "2e2767d56b5a651fb6d31153c30d08b2ebc3ead529ce7bead2d7da6d0bd54398",
+      "unchanged_from_local_original": false
+    },
+    {
+      "file": "pathsnap/evaluation.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "b28426509c39190c6184ef7d584109bf68d7fb0fd69b9c01dbafa00dcc2d7f07",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "notebooks/gps_preprocessing.ipynb",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "eab70ed0eef42a5b51ef80cd0f25e31114dafcd32c049ea8eda783e37d4b19f2",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "tests/test_routing.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "66095fa2fcc73bfae7fc5e78bb59fafad57c6574cb6f1b9f605b5a99967d1b84",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "tests/test_routing_cache.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "629107a9456ab5fc4a2f8a679cae215dddb509cead3f9cc19d37f258a016c62f",
+      "unchanged_from_local_original": true
+    },
+    {
+      "file": "tests/test_evaluation.py",
+      "origin": "Existing user workspace project, not fetched from a remote source",
+      "original_sha256": "68a4f8121b54c9b9d21321b3cee986e8bb310a87c58e2d83b165a08dbad462f2",
+      "unchanged_from_local_original": true
+    }
+  ],
+  "new_components": [
+    "pathsnap/pipeline.py",
+    "pathsnap/matching.py",
+    "pathsnap/server_evaluation.py",
+    "pathsnap/api.py",
+    "scripts/train_complete.py",
+    "scripts/evaluate_complete.py",
+    "scripts/ablate_direction.py",
+    "scripts/build_report.py",
+    "scripts/capture_evidence.py",
+    "ui/index.html",
+    "pathsnap/model_io.py",
+    "scripts/predict_trip.py",
+    "scripts/export_report_evidence.py"
+  ],
+  "data_source": {
+    "file": "data/raw/Student folder.zip",
+    "sha256": "4804b0399d1d56f4844b9c74e2f998aae0a281fb5947a1f47ad1bd013214d248",
+    "partitions_used": [
+      "train",
+      "student_test"
+    ],
+    "evaluator_partition_used": false
+  },
+  "third_party_algorithm_implementations": [
+    "scikit-learn",
+    "XGBoost",
+    "PyTorch",
+    "Optuna"
+  ],
+  "github_actions_performed": false
+}

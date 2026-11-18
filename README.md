@@ -1,293 +1,80 @@
 # PathSnap
 
-PathSnap reconstructs a directed road route from noisy GPS using a trained
-candidate classifier and HMM/Viterbi decoding.
+PathSnap reconstructs directed road routes from GPS observations. The
+[submission package](submission/README.md) contains the delivered source,
+fitted models, notebooks, run logs, results and
+[technical report](submission/report/PathSnap_Technical_Report.pdf).
 
 ## Model comparison
 
-**KNN with GPS motion features** is the final model. It matched **13,702 of
-16,317** aligned GPS observations after Viterbi. Use the decoded accuracy
-for the end-to-end student-test result. Top-1 measures the independent
-classifier choice before Viterbi.
+**Tuned XGBoost is the deployed model.** It had the highest mean top-1
+accuracy in three-fold, trip-grouped training cross-validation. The model
+was then evaluated on the same ten student-test trips as the other models.
 
-| Model | Key settings | CV macro F1 | Student top-1 | **Decoded accuracy** | Decoded continuity | Student macro F1 | Log loss | Live scoring (10 trips) |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| **KNN + motion** | 51 neighbours, uniform vote, 16,000-observation index | 90.10% | 85.93% | **83.97%** | 96.68% | 91.03% | 0.097 | 35.50 s |
-| MLP + motion | 32×16 hidden layers, 5 epochs | 90.92% | 85.74% | 83.48% | 96.19% | 91.64% | 0.076 | 1.94 s |
-| Logistic Regression + heading | C=1, positive class weight=2 | 88.17% | 85.33% | 83.15% | 96.11% | 88.42% | 0.118 | 0.63 s |
-| Tuned Random Forest | 100 trees, depth 20, min leaf 35, balanced weights | 78.25%† | 54.75% | 81.07% | 95.39% | 78.15% | 0.264 | 3.46 s |
-| XGBoost (baseline) | 200 trees, depth 6, learning rate 0.05 | 75.45% | 54.78% | 80.36% | 94.80% | 74.94% | 0.161 | 0.74 s |
+| Model | Training CV top-1 | Student-test top-1 | Student-test accuracy after HMM/Viterbi | Decoded point continuity |
+| --- | ---: | ---: | ---: | ---: |
+| Logistic Regression | 86.09% | 86.53% | 89.71% | 96.84% |
+| Distance-weighted KNN | 85.62% | 87.14% | 89.81% | 97.39% |
+| Random Forest | 86.33% | 87.28% | 89.40% | 97.37% |
+| PyTorch MLP | 86.35% | 86.78% | 89.29% | 97.26% |
+| XGBoost baseline | 86.46% | 87.00% | 89.70% | 97.37% |
+| **XGBoost after TPE (selected)** | 86.50% | 86.82% | 89.74% | 97.33% |
 
-The table shows the highest decoded-accuracy variant per family. All 13
-variants ran on the same ten student-test trips with the same candidate set,
-alignment and decoder settings. CV uses grouped training trips (three folds
-for the heading/motion models and five for the trees). † Random Forest CV
-comes from the team's Kaggle notebook, which regenerated its inputs. Its
-student-test row comes from the local refit on the committed inputs.
-Macro F1 and log loss measure binary candidate classification.
+Tuned XGBoost matched **14,643 of 16,317** aligned student-test observations
+after Viterbi. KNN had the highest decoded student-test accuracy in the
+comparison. Training CV determined the deployable model before the
+student-test comparison. The tuned CV score also guided the TPE search.
 
-KNN led MLP by 80 correct observations and took longer to score. For KNN,
-decoding raised strict direct-arc continuity by 5.34 percentage points and
-ordered route-pair F1 from 53.88% to 61.54%, while reducing pointwise
-accuracy on six of the ten trips. Logistic Regression had the highest
-decoded route-pair F1 (62.38%). These are development results on the supplied
-student-test split.
+See the [selection record](submission/results/selection.json),
+[full route comparison](submission/results/route_comparison.csv),
+[per-trip results](submission/results/route_per_trip.csv) and
+[classifier metrics](submission/results/model_metrics.csv).
 
-Read the [benchmark protocol and reproduction commands](experiments/final_viterbi_comparison/README.md),
-[all 13 aggregate results](experiments/final_viterbi_comparison/aggregate.csv)
-and [per-trip results](experiments/final_viterbi_comparison/per_trip.csv).
+## Run the submitted demo
 
-The [full-team Kaggle notebook](notebooks/pathsnap_full_team_run.ipynb)
-contains the original training and tuning runs for all five model families,
-with saved outputs. It uses the earlier revision pinned in the notebook.
+Run from the repository root with Python 3.13 available.
 
-## Run the live demo
+**Windows PowerShell**
 
-Follow the [Windows and macOS/Linux launch instructions](docs/final_model_live_demo.md).
-Start FastAPI on Laptop 1 and serve the browser UI from Laptop 2. A single
-laptop can run both. For practice, connect the UI and decode student-test
-trip `00000052` with **Final model**.
-
-## Setup
-
-The additional pinned environment is verified on macOS with Python 3.11. From the repository root:
-
-```bash
-python3.11 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements/requirements.txt
-python -m ipykernel install --user --name pathsnap --display-name "Python (PathSnap)"
-python -m notebook
+```powershell
+cd submission
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-inference.txt
+.\.venv\Scripts\python.exe -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
 ```
 
-Open
-`notebooks/gps_preprocessing.ipynb`, select **Python (PathSnap)** and run the
-cells in order. Map tiles require internet access.
-
-`requirements/requirements.in` includes the existing `requirements/requirements-preprocessing.txt`
-versions and adds the Jupyter interface. `requirements/requirements.txt` pins the resolved dependencies for the Python
-3.11 macOS environment. On other platforms, resolve `requirements/requirements.in` in a
-fresh environment to account for platform-specific Jupyter dependencies. Use the
-[live demo requirements](requirements/requirements-live-demo.txt) for the API.
-
-
-## Reproduce the preprocessing
-
-1. Install the dependencies with `python -m pip install -r requirements/requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
-2. Use the supplied development archive at `data/raw/Student folder.zip` without extracting it. It contains the training and student-test partitions. To use an archive stored elsewhere, set `PATHSNAP_DATA_ZIP` to its full path.
-3. Open `notebooks/gps_preprocessing.ipynb` from the project root or the `notebooks/` directory and run all cells. The notebook regenerates the files in `data/processed/`, including a local Folium HTML map. Map tiles need internet access.
-
-## Processed data
-
-| File | Grain and contents |
-|---|---|
-| `observations.csv.gz` | One row per retained GPS observation, keyed by `split`, `trip_id`, and `obs_id`. Includes longitude, latitude, timestamp in seconds, interval and gap flags, distance in metres, speed in metres per second, and initial heading in degrees. |
-| `trip_summary.csv` | One row per trip with GPS quality counts, bounds, gap statistics, road network size and connectivity, and reference discontinuity counts. |
-| `split_summary.csv` | Counts and sampling statistics for the training and student-test splits. |
-| `archive_inventory.csv` | File availability and uncompressed sizes by split, trip and file type. |
-| `sampling.png` | GPS observations per trip and sampling-interval distributions by split. |
-| `sample_trip_map.html` (generated locally) | Interactive GPS, nearby road-network and reference-route layers for a representative training trip. |
-
-```python
-import pandas as pd
-
-observations = pd.read_csv(
-    "data/processed/observations.csv.gz",
-    dtype={"trip_id": str},
-)
-```
-
-Keep `trip_id` as a string to preserve leading zeros. Empty motion values mean the feature is undefined. The notebook's `load_graph` function regenerates graph features for a trip from its original node and arc rows. The observations export carries no reference arc IDs or observation-level labels.
-
-## Preprocessing decisions
-
-- Validate coordinate bounds, timestamps, graph endpoints and reference arc IDs. Keep original zero-based observation, node and arc IDs. Preserve repeated directed arc endpoints and reference traversal order.
-- Sort observations by timestamp, keep the first valid row at repeated timestamps, and flag intervals longer than five seconds. Leave speed and heading empty across gaps or breaks in original observation order. Keep GPS observations at their recorded positions.
-- Calculate distances in metres with the haversine formula. Arc lengths approximate the distance between road-node endpoints. Audit weak connectivity and record breaks in directed reference adjacency.
-- Processed all 80 training trips and 10 student-test trips. The run kept 208,417 training and 19,160 student-test observations, and found 1,216 training gaps and 44 student-test gaps longer than five seconds. The longest gap was 153,064 seconds. There were 13 directed reference breaks in training and one in student testing.
-- Preserve these partitions for the next phase. Cross-validation and learned preprocessing should use trip-grouped training folds. Evaluator trips are reserved for final evaluation.
-
-Implementation and verification were assisted by Codex.
-
-## View a real trip (Person 3, task 1)
-
-The standalone viewer uses the committed processed observations and the original
-ZIP's road network. It does not read `.route` labels or require a classifier.
-Run these commands from the repository root after installing the existing
-dependencies. The viewer uses the ZIP at `data/raw/Student folder.zip` by default:
-
-```bash
-python scripts/view_trip.py --list-trips
-python scripts/view_trip.py --split train --trip-id 00000083
-```
-
-Open `data/viewer/train_00000083.html` in a browser. Internet access is needed
-for OpenStreetMap tiles and Folium's JavaScript/CSS assets. A JSON summary is
-saved beside the HTML. With no trip ID, the viewer selects the training trip
-whose observation count is nearest the median.
-
-To use a different archive path or student-test trip:
-
-```bash
-python scripts/view_trip.py --split student_test --trip-id 00000000 --data-zip "/path/to/Student folder.zip"
-```
-
-`PATHSNAP_DATA_ZIP` also works. Use `--output /path/to/map.html` to select the
-output location (it must end in `.html`), or
-`--observations /path/to/observations.csv.gz` for another
-preprocessed observation export with the same columns. Keep trip IDs zero-padded.
-
-The map has toggleable road, measured GPS, gap, and start/end layers. Click GPS
-points to inspect original observation IDs, coordinates and timestamps. Roads
-are independent segments near the GPS extent; GPS points are not joined into
-lines across gaps. Orange rings mark observations following gaps over five
-seconds, consistent with the current preprocessing threshold. No prediction or
-accuracy is displayed. Reference routes are intentionally absent from this viewer.
-
-This is a CLI-selected exploration map, not yet the final API-backed trip selector.
-Generated viewer files stay under the existing ignored `data/` output paths.
-
-## Updating dependencies
-
-With uv installed, resolve and install changes in a Python 3.11 environment:
-
-```bash
-uv pip compile requirements/requirements.in --python .venv/bin/python --output-file requirements/requirements.txt
-uv pip sync requirements/requirements.txt --python .venv/bin/python
-uv pip check --python .venv/bin/python
-```
-
-Review the dependency diff and rerun the notebook before committing an update.
-
-## Road-arc candidates
-
-`data/processed/candidates_train.parquet` and `data/processed/candidates_student_test.parquet` contain one row per GPS observation and nearby directed arc. The default search includes every arc whose straight segment is within 50 metres of the GPS point in a trip-local metric projection. The radius is an initial development setting and can be changed with `--radius-m`. The generator uses only the GPS coordinates and graph.
-
-| Columns | Meaning |
-|---|---|
-| `split`, `trip_id`, `obs_id`, `arc_id` | Join key for classifier scores. Arc IDs are zero-based rows within each trip's original arc file. |
-| `candidate_rank`, `distance_to_arc_m` | One-based rank within the observation and perpendicular or endpoint-clamped distance to the arc. Ties use arc ID. |
-| `fraction_along_arc`, `offset_from_arc_start_m` | Position along the directed arc from its source node (0) to its destination node (1). Offset is the fraction times the arc's haversine endpoint length. |
-| `projected_longitude`, `projected_latitude` | Closest point on the straight arc segment, in degrees. |
-
-Use the processed observations table for timestamps, order, and GPS gap flags. An observation with no arc within the radius has no candidate rows. Preserve it with a left join on `split`, `trip_id`, and `obs_id`. The per-trip counts are in `data/processed/candidate_coverage.csv`. Coverage measures whether any candidate exists, and reference-arc recall requires separate label alignment.
-
-To reproduce, run the preprocessing notebook, then install the candidate export dependency in the same environment and run:
+**macOS or Linux**
 
 ```sh
-python -m pip install -r requirements/requirements-candidates.txt
-python scripts/generate_candidates.py
+cd submission
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements-inference.txt
+.venv/bin/python -m uvicorn pathsnap.api:app --host 0.0.0.0 --port 8000
 ```
 
-Load either table with `pandas.read_parquet()`. Parquet preserves the leading zeros in `trip_id`.
+Open `http://localhost:8000`, click **Connect**, select a student-test trip,
+and click **Reconstruct route**. The API loads the fitted
+[UBJSON model](submission/results/final_model.ubj), generates features from raw
+GPS and the road graph, and decodes the route live. The page displays
+per-trip results. The saved figures above pool all ten student-test trips.
 
-## Reference labels for training and evaluation
+See the [delivery instructions](submission/README.md#two-laptops) for LAN
+setup and reserved evaluator inputs. The training evidence includes the
+[GPU notebook source](submission/notebooks/gpu_training_source.ipynb),
+[recorded GPU run](submission/results/gpu_execution.log), and
+[preprocessing notebook with outputs](submission/notebooks/gps_preprocessing_executed.ipynb).
+The delivered files retain their recorded
+[checksums](submission/SHA256SUMS.txt). The publication notes inside the
+package describe its original local handoff.
 
-The two `data/processed/reference_labels_*.parquet` files contain one row per
-observation keyed by `split`, `trip_id`, and `obs_id`. Each label is an estimate
-derived from the supplied ordered reference route. The archive supplies no
-independently verified per-observation arc labels.
+The table reports the delivered benchmark. A Windows live rerun matched nine
+trips exactly and decoded **14,642 of 16,317** observations correctly (89.73%).
+On trip `00000077`, near-equal distances changed candidate ranks when the API
+rebuilt candidates. Scoring the delivered candidate geometry reproduced the
+recorded counts for that trip.
 
-The generator projects GPS points onto reference arc occurrences within 75 m.
-It minimizes distance plus a 75 m cost per unmatched observation with a
-nondecreasing route-step constraint. A matched row is flagged as ambiguous if
-another distinct arc fits between its neighbouring assignments and is within
-3 m of its selected distance, or closer. Both thresholds are fixed development
-choices. Repeated arcs retain their separate route steps. The break flag records
-when a match advances across a discontinuity in the supplied route.
+## Earlier development
 
-- `reference_arc_id` and `reference_route_step` are null for unmatched observations.
-- `alignment_status` distinguishes aligned, ambiguous, and unmatched observations.
-- `has_candidates` and `reference_in_candidates` audit candidate coverage after
-  alignment. The candidate tables play no role in determining the reference arc.
-- `usable_for_training` selects aligned training observations whose reference arc
-  appears in the candidate table. Exclude entire candidate groups that fail this
-  check to avoid treating all candidates as negatives when the positive is absent.
-
-For supervised fitting, join the training candidates to these training labels by
-the observation key and set the binary target to
-`arc_id == reference_arc_id`. Preserve the trip ID for grouped validation.
-Use the student-test labels for development evaluation. Report point accuracy
-on aligned observations, including candidate misses as misses. Report the
-counts of excluded ambiguous and unmatched observations alongside the metric.
-Keep reference labels and alignment columns out of inference features and UI
-responses.
-
-Regenerate the labels and per-trip `reference_label_coverage.csv` after generating
-the candidate tables:
-
-```sh
-python scripts/generate_reference_labels.py
-```
-
-## Train the two baseline classifiers
-
-After generating candidates and reference labels, run from the repository root:
-
-```sh
-python -m pip install -r requirements/requirements-baselines.txt
-python scripts/train_baselines.py
-python scripts/visualize_baselines.py
-```
-
-The [baseline experiment report](experiments/baselines/README.md) documents the
-Logistic Regression and KNN configurations, real metrics, plots, trained model
-artifacts, and the candidate score format for route reconstruction.
-
-## Random Forest experiment
-
-See [the Random Forest notes](docs/random_forest.md) for the training command,
-feature choices, validation protocol and score interpretation. The run uses the
-same candidate tables and trip folds as the Logistic Regression and KNN baselines.
-
-## XGBoost experiment
-
-See [XGBoost training and results](docs/xgboost.md) for dependencies, the fixed
-configuration and comparison on the same trip folds as Random Forest.
-
-## Tree-model tuning
-
-See [the tuning workflow](docs/tree_tuning.md) for commands, selection rules and
-limitations. Generate the recorded comparison with `python scripts/compare_tree_models.py`.
-
-## Train the MLP classifier
-
-Use the same preprocessing outputs and published trip folds as the baseline
-experiments. From the repository root:
-
-```sh
-python -m pip install -r requirements/requirements-baselines.txt
-python scripts/train_mlp.py
-python scripts/visualize_mlp.py
-```
-
-See the [MLP experiment report](experiments/mlp/README.md) for training settings,
-per-epoch and held-out results, plots, model artifact, and candidate score export.
-
-## Tune Logistic Regression, KNN, and MLP
-
-Run the Bayesian searches on training trips, refit each selected configuration,
-and evaluate on the student-test split:
-
-```sh
-python -m pip install -r requirements/requirements-classifier-tuning.txt
-python scripts/tune_classifiers.py
-python scripts/visualize_classifier_tuning.py
-```
-
-The [classifier tuning report](experiments/classifier_tuning/README.md) links the
-trial logs, selected settings, baseline comparisons, and scores for Viterbi.
-
-## Direction and motion feature experiment
-
-Use the same three training-trip folds as the Bayesian tuning run:
-
-```sh
-python -m pip install -r requirements/requirements-classifier-tuning.txt
-python scripts/train_motion_models.py
-python scripts/benchmark_motion_decoding.py
-python scripts/visualize_motion_models.py
-```
-
-The [direction and motion report](experiments/motion_features/README.md) includes
-the feature comparison, selected classifiers, and matched Viterbi results.
+The previous notebooks, code, and experiments remain in the repository.
+The [earlier README](https://github.com/vasishtcoffee/ML-HACKATHON/blob/e5121e7fb8ad4c163bf7354ab0ccddcbeabc91f8/README.md)
+documents that workflow and its original evaluation protocol.

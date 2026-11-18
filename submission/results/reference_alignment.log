@@ -1,0 +1,4 @@
+              observations  aligned  ambiguous  unmatched  zero_candidates  aligned_arc_missing  aligned_with_other_candidates  usable_for_training
+split                                                                                                                                              
+student_test         19160    16317       2822         21                0                    6                              6                    0
+train               208417   163219      23320      21878            18229                 1262                            557               161957

@@ -1,0 +1,4 @@
+-r requirements-inference.txt
+torch==2.11.0
+nbclient>=0.10
+ipykernel>=6.29

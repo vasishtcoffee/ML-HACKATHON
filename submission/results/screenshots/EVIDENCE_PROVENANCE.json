@@ -1,0 +1,22 @@
+{
+  "working_ui.jpg": {
+    "type": "Actual previously captured browser screenshot",
+    "model": "Training-only integration Logistic Regression, not final XGBoost",
+    "trip": "00000052"
+  },
+  "development_map.jpg": {
+    "type": "Static geographical export of the actual Folium PolyLine and CircleMarker coordinates",
+    "source": "results/maps/development_00000009.html",
+    "model": "Frozen final XGBoost + HMM",
+    "not_a_browser_screenshot": true
+  },
+  "server_evidence.jpg": {
+    "type": "Rendered actual HTTP response and Uvicorn log text",
+    "source": [
+      "results/api_response_00000052.json",
+      "results/api_server.log"
+    ],
+    "not_a_native_terminal_screenshot": true
+  },
+  "capture_limit": "Browser-control access became unavailable; native Terminal application access was rejected by the computer-use safety tool."
+}

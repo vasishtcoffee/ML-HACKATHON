@@ -1,0 +1,35 @@
+/Users/manojkumarchaturvedi/Downloads/ctf_sep26/PathSnap_complete/.venv/lib/python3.13/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_missed_reference_counts_against_both (test_evaluation.EvaluationTests.test_missed_reference_counts_against_both) ... ok
+test_tied_probability_prefers_candidate_rank_over_arc_id (test_evaluation.EvaluationTests.test_tied_probability_prefers_candidate_rank_over_arc_id) ... ok
+test_tied_score_and_rank_prefers_smaller_arc_id (test_evaluation.EvaluationTests.test_tied_score_and_rank_prefers_smaller_arc_id) ... ok
+test_malformed_and_unknown_ids_rejected (test_live_api.LiveAPIIsolationTests.test_malformed_and_unknown_ids_rejected) ... ok
+test_missing_references_still_predicts_raw_inputs (test_live_api.LiveAPIIsolationTests.test_missing_references_still_predicts_raw_inputs) ... ok
+test_cleaning_preserves_original_ids_and_marks_breaks (test_pipeline.LivePipelineTests.test_cleaning_preserves_original_ids_and_marks_breaks) ... ok
+test_direction_distinguishes_reverse_arcs (test_pipeline.LivePipelineTests.test_direction_distinguishes_reverse_arcs) ... ok
+test_explicit_original_row_break_splits_hmm (test_pipeline.LivePipelineTests.test_explicit_original_row_break_splits_hmm) ... ok
+test_feature_values_do_not_depend_on_reference_columns (test_pipeline.LivePipelineTests.test_feature_values_do_not_depend_on_reference_columns) ... ok
+test_missing_candidates_return_valid_empty_features (test_pipeline.LivePipelineTests.test_missing_candidates_return_valid_empty_features) ... ok
+test_reference_files_not_visible_to_prediction_inventory (test_pipeline.LivePipelineTests.test_reference_files_not_visible_to_prediction_inventory) ... ok
+test_small_offset_retreat_is_noise_not_reverse_road (test_pipeline.LivePipelineTests.test_small_offset_retreat_is_noise_not_reverse_road) ... ok
+test_bad_probability_rejected (test_routing.DecoderTests.test_bad_probability_rejected) ... ok
+test_disconnected_transition_starts_new_segment (test_routing.DecoderTests.test_disconnected_transition_starts_new_segment) ... ok
+test_large_timestamp_gap_splits_sequences (test_routing.DecoderTests.test_large_timestamp_gap_splits_sequences) ... ok
+test_missing_candidates_create_missing_prediction (test_routing.DecoderTests.test_missing_candidates_create_missing_prediction) ... ok
+test_non_monotonic_timestamp_rejected (test_routing.DecoderTests.test_non_monotonic_timestamp_rejected) ... ok
+test_viterbi_prefers_connected_route_over_higher_single_score (test_routing.DecoderTests.test_viterbi_prefers_connected_route_over_higher_single_score) ... ok
+test_directed_shortest_path_includes_intermediate_arc (test_routing.DirectedRoutingTests.test_directed_shortest_path_includes_intermediate_arc) ... ok
+test_disconnected_and_distance_limited_paths (test_routing.DirectedRoutingTests.test_disconnected_and_distance_limited_paths) ... ok
+test_forward_arc_and_distance (test_routing.DirectedRoutingTests.test_forward_arc_and_distance) ... ok
+test_haversine_distance_is_metric (test_routing.DirectedRoutingTests.test_haversine_distance_is_metric) ... ok
+test_rejects_invalid_arc_and_fraction (test_routing.DirectedRoutingTests.test_rejects_invalid_arc_and_fraction) ... ok
+test_reverse_direction_is_not_invented (test_routing.DirectedRoutingTests.test_reverse_direction_is_not_invented) ... ok
+test_cache_success_checks_new_distance_limit (test_routing_cache.CacheTests.test_cache_success_checks_new_distance_limit) ... ok
+test_decoder_outputs_identical_with_cache (test_routing_cache.CacheTests.test_decoder_outputs_identical_with_cache) ... ok
+test_failure_does_not_poison_larger_bound (test_routing_cache.CacheTests.test_failure_does_not_poison_larger_bound) ... ok
+test_smaller_failed_bounds_reuse_proof (test_routing_cache.CacheTests.test_smaller_failed_bounds_reuse_proof) ... ok
+
+----------------------------------------------------------------------
+Ran 28 tests in 1.016s
+
+OK
