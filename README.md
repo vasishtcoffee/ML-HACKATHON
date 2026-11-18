@@ -173,3 +173,17 @@ the candidate tables:
 ```sh
 python scripts/generate_reference_labels.py
 ```
+
+## Train the two baseline classifiers
+
+After generating candidates and reference labels, run from the repository root:
+
+```sh
+python -m pip install -r requirements-baselines.txt
+python scripts/train_baselines.py
+python scripts/visualize_baselines.py
+```
+
+The [baseline experiment report](experiments/baselines/README.md) documents the
+Logistic Regression and KNN configurations, real metrics, plots, trained model
+artifacts, and the candidate score format for route reconstruction.
