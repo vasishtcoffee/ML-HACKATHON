@@ -27,6 +27,7 @@ OBS_KEY = KEY[:-1]
 SEED = 42
 N_FOLDS = 5
 THRESHOLD = 0.5
+DEFAULT_MODELS = ("logistic_regression", "knn")
 MODELS = {
     "random_forest": {"n_estimators": 100, "max_depth": 16, "min_samples_leaf": 10,
                       "max_features": "sqrt", "n_jobs": 4, "random_state": SEED},
@@ -148,7 +149,7 @@ def measure(model, timeline, candidates, graphs, phase, fold=None):
 
 
 def run(processed, archive, output, models=None):
-    models = list(MODELS) if models is None else models
+    models = DEFAULT_MODELS if models is None else models
     output.mkdir(parents=True, exist_ok=True)
     train_timeline, train = load_split(processed, "train")
     test_timeline, student_test = load_split(processed, "student_test")
@@ -215,7 +216,7 @@ def main():
         "PATHSNAP_DATA_ZIP", ROOT / "data" / "raw" / "Student folder.zip",
     )))
     parser.add_argument("--output", type=Path, default=ROOT / "experiments/baselines")
-    parser.add_argument("--models", nargs="+", choices=list(MODELS), default=list(MODELS))
+    parser.add_argument("--models", nargs="+", choices=list(MODELS), default=DEFAULT_MODELS)
     args = parser.parse_args()
     with threadpool_limits(limits=4):
         run(args.processed_dir, args.archive, args.output, args.models)
