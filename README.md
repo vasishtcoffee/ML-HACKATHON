@@ -37,6 +37,10 @@ Read the [benchmark protocol and reproduction commands](experiments/final_viterb
 [all 13 aggregate results](experiments/final_viterbi_comparison/aggregate.csv)
 and [per-trip results](experiments/final_viterbi_comparison/per_trip.csv).
 
+The [full-team Kaggle notebook](notebooks/pathsnap_full_team_run.ipynb)
+contains the original training and tuning runs for all five model families,
+with saved outputs. It uses the earlier revision pinned in the notebook.
+
 ## Run the live demo
 
 Follow the [Windows and macOS/Linux launch instructions](docs/final_model_live_demo.md).

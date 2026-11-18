@@ -61,8 +61,8 @@ folds. The student-test ranking supplies the held-out comparison.
   The enhanced KNN used the subsequent
   [motion-feature search](../motion_features/validation_trials.csv) on the
   same trip folds. Both are preserved in the benchmark.
-- The tuned Random Forest uses trial 4 from the team's Kaggle notebook
-  `pathsnap-full-team-run (1).ipynb`, cell 22. Its
+- The tuned Random Forest uses trial 4 from cell 22 of the
+  [full-team Kaggle notebook](../../notebooks/pathsnap_full_team_run.ipynb). Its
   [trial log](../random_forest_tuned/notebook_trials.json) and
   [CV output](../random_forest_tuned/notebook_cv_macro_f1.csv) are from that run.
   The [local refit metrics](../random_forest_tuned/refit_metrics.json)
