@@ -259,3 +259,17 @@ artifacts, and the candidate score format for route reconstruction.
 See [the Random Forest notes](docs/random_forest.md) for the training command,
 feature choices, validation protocol and score interpretation. The run uses the
 same candidate tables and trip folds as the Logistic Regression and KNN baselines.
+
+## Train the MLP classifier
+
+Use the same preprocessing outputs and published trip folds as the baseline
+experiments. From the repository root:
+
+```sh
+python -m pip install -r requirements/requirements-baselines.txt
+python scripts/train_mlp.py
+python scripts/visualize_mlp.py
+```
+
+See the [MLP experiment report](experiments/mlp/README.md) for training settings,
+per-epoch and held-out results, plots, model artifact, and candidate score export.
