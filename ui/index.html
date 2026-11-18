@@ -21,7 +21,8 @@
     <button id="connect">Connect</button>
   </div>
   <form id="run">
-    <label>Student-test trip <select id="trips" disabled></select></label>
+    <label>Trip dataset <select id="split" disabled><option value="student_test">Student-test (development)</option><option value="evaluator">Evaluator (live inference)</option></select></label>
+    <label>Trip <select id="trips" disabled></select></label>
     <label>Candidate scorer <select id="model" disabled></select></label>
     <button id="decode" disabled>Decode route</button>
   </form>
@@ -32,18 +33,42 @@
   const backend = document.querySelector('#backend');
   const connect = document.querySelector('#connect');
   const trips = document.querySelector('#trips');
+  const split = document.querySelector('#split');
   const decode = document.querySelector('#decode');
   const model = document.querySelector('#model');
   const status = document.querySelector('#status');
   const map = document.querySelector('#map');
   let api;
+  let available = {student_test: [], evaluator: []};
+  let displayNames = {}; 
+  function refreshTrips() {
+    trips.replaceChildren();
+    for (const id of available[split.value]) trips.add(new Option(id, id));
+    trips.disabled = decode.disabled = !available[split.value].length;
+    const onlyLive = split.value === 'evaluator';
+    for (const option of model.options) {
+      option.disabled = onlyLive && !option.value.startsWith('live_') && option.value !== 'final';
+    }
+    if (model.selectedOptions[0]?.disabled) {
+      const preferred = Array.from(model.options).find(option => !option.disabled);
+      if (preferred) model.value = preferred.value;
+    }
+    if (onlyLive && model.options.length && !Array.from(model.options).some(option => !option.disabled)) {
+      decode.disabled = true;
+      status.textContent = 'No live classifier is available. Configure Laptop 1.';
+    } else {
+      status.textContent = available[split.value].length ? 'Select a trip and scoring model.' :
+        (onlyLive ? 'No evaluator trips configured on Laptop 1.' : 'No student-test trips available.');
+    }
+  }
+  split.addEventListener('change', refreshTrips);
   async function request(path, options) {
     const response = await fetch(new URL(path, api), options);
     if (!response.ok) throw new Error((await response.json()).detail || response.statusText);
     return response.json();
   }
   connect.onclick = async () => {
-    connect.disabled = trips.disabled = model.disabled = decode.disabled = true;
+    connect.disabled = trips.disabled = model.disabled = decode.disabled = split.disabled = true;
     map.hidden = true;
     trips.replaceChildren();
     model.replaceChildren();
@@ -51,41 +76,49 @@
     try {
       api = new URL(backend.value);
       const data = await request('/trips');
-      for (const id of data.trip_ids) trips.add(new Option(id, id));
+      available = {student_test: data.trip_ids || [], evaluator: data.evaluator_trip_ids || []};
+      split.replaceChildren(new Option('Student-test (development)', 'student_test'),
+        new Option('Evaluator (live inference)', 'evaluator'));
+      split.disabled = false;
       for (const [id, label] of Object.entries(data.models)) model.add(new Option(label, id));
-      model.value = "distance"; // Guaranteed development fallback when trained exports are absent.
-      status.textContent = data.trip_ids.length ? 'Select a trip to decode.' : 'No trips available.';
-      trips.disabled = model.disabled = decode.disabled = !data.trip_ids.length;
+      model.value = data.final_model_configured ? "final" : "distance";
+      model.disabled = false;
+      refreshTrips();
     } catch (error) {
       status.textContent = 'Connection failed. Check the backend address and allowed UI origin. ' + error.message;
     } finally { connect.disabled = false; }
   };
   document.querySelector('#run').onsubmit = async (event) => {
     event.preventDefault();
-    connect.disabled = trips.disabled = decode.disabled = true;
+    connect.disabled = trips.disabled = model.disabled = split.disabled = decode.disabled = true;
     map.hidden = true;
     status.textContent = 'Decoding trip ' + trips.value + '…';
     try {
       const data = await request('/predict', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({trip_id: trips.value, model: model.value})
+        body: JSON.stringify({trip_id: trips.value, model: model.value, split: split.value})
       });
       map.srcdoc = data.map_html;
       map.hidden = false;
       const e = data.evaluation;
-      const percent = value => value == null ? 'Unavailable' : (100 * value).toFixed(1) + '%';
+      const percent = value => value == null ? 'Unavailable (evaluator labels withheld)' : (100 * value).toFixed(1) + '%';
+      const metricText = e ? (
+        ' · Top-1: ' + percent(e.top1_accuracy) +
+        ' · Viterbi: ' + percent(e.viterbi_accuracy) +
+        ' · ' + e.aligned + ' aligned, including ' + e.candidate_misses +
+        ' candidate misses. Excluded ' + e.ambiguous_excluded +
+        ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.'
+      ) : ' · Evaluator reference labels withheld; no accuracy is computed.';
       status.textContent = data.scoring + ' · ' + data.matched_observations + '/' +
         data.observations + ' observations matched · ' + data.route_segments.length +
         ' route segments (' + Math.max(0, data.route_segments.length - 1) + ' breaks) · ' +
-        data.runtime_seconds + ' s server total · Top-1: ' + percent(e.top1_accuracy) +
-        ' · Viterbi: ' + percent(e.viterbi_accuracy) + ' · ' + e.aligned +
-        ' aligned, including ' + e.candidate_misses + ' candidate misses. Excluded ' +
-        e.ambiguous_excluded + ' ambiguous and ' + e.unmatched_excluded + ' unmatched labels.' +
+        data.runtime_seconds + ' s server total' + metricText +
         (data.timings ? ' Routing: ' + data.timings.road_routing_seconds.toFixed(2) +
         ' s · Map: ' + data.timings.map_render_seconds.toFixed(2) + ' s.' : '');
+
     } catch (error) {
       status.textContent = 'Decoding failed. ' + error.message;
-    } finally { connect.disabled = trips.disabled = model.disabled = decode.disabled = false; }
+    } finally { connect.disabled = model.disabled = split.disabled = false; refreshTrips(); }
   };
 </script>
 </html>
