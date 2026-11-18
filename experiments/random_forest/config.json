@@ -1,0 +1,30 @@
+{
+  "features": [
+    "distance_to_arc_m",
+    "candidate_rank",
+    "fraction_along_arc",
+    "offset_from_arc_start_m"
+  ],
+  "candidate_threshold": 0.5,
+  "seed": 42,
+  "folds": 5,
+  "configurations": {
+    "random_forest": {
+      "n_estimators": 100,
+      "max_depth": 16,
+      "min_samples_leaf": 10,
+      "max_features": "sqrt",
+      "n_jobs": 4,
+      "random_state": 42
+    }
+  },
+  "continuity_available": false,
+  "versions": {
+    "scikit-learn": "1.7.2",
+    "numpy": "2.2.0",
+    "pandas": "2.2.3",
+    "scipy": "1.16.2",
+    "joblib": "1.5.2",
+    "pyarrow": "22.0.0"
+  }
+}

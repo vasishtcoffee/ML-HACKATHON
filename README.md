@@ -254,6 +254,12 @@ The [baseline experiment report](experiments/baselines/README.md) documents the
 Logistic Regression and KNN configurations, real metrics, plots, trained model
 artifacts, and the candidate score format for route reconstruction.
 
+## Random Forest experiment
+
+See [the Random Forest notes](docs/random_forest.md) for the training command,
+feature choices, validation protocol and score interpretation. The run uses the
+same candidate tables and trip folds as the Logistic Regression and KNN baselines.
+
 ## Train the MLP classifier
 
 Use the same preprocessing outputs and published trip folds as the baseline
