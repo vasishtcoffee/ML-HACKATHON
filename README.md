@@ -283,3 +283,17 @@ python scripts/visualize_mlp.py
 
 See the [MLP experiment report](experiments/mlp/README.md) for training settings,
 per-epoch and held-out results, plots, model artifact, and candidate score export.
+
+## Tune Logistic Regression, KNN, and MLP
+
+Run the Bayesian searches on training trips, refit each selected configuration,
+and evaluate on the student-test split:
+
+```sh
+python -m pip install -r requirements/requirements-classifier-tuning.txt
+python scripts/tune_classifiers.py
+python scripts/visualize_classifier_tuning.py
+```
+
+The [classifier tuning report](experiments/classifier_tuning/README.md) links the
+trial logs, selected settings, baseline comparisons, and scores for Viterbi.

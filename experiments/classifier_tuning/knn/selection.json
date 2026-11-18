@@ -1,0 +1,12 @@
+{
+  "selected_trial": 5,
+  "selected_parameters": {
+    "n_neighbors": 41,
+    "weights": "uniform"
+  },
+  "baseline_trial_cv_top1": 0.5509301646095291,
+  "selected_trial_cv_top1": 0.5524249552624633,
+  "trials_completed": 8,
+  "distinct_configurations": 6,
+  "search_seconds": 128.61914769996656
+}

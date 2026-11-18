@@ -1,0 +1,14 @@
+{
+  "selected_trial": 4,
+  "selected_parameters": {
+    "shape": "32x16",
+    "epochs": 10,
+    "alpha": 0.00023242917225434374,
+    "learning_rate": 0.0022350140084872587
+  },
+  "baseline_trial_cv_top1": 0.5628029167031413,
+  "selected_trial_cv_top1": 0.5628905310180053,
+  "trials_completed": 8,
+  "distinct_configurations": 8,
+  "search_seconds": 671.2948328000493
+}
