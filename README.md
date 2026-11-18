@@ -28,7 +28,7 @@ components exist.
 ## Reproduce the preprocessing
 
 1. Install the dependencies with `python -m pip install -r requirements-preprocessing.txt`. Use a Python 3.13 notebook kernel for the tested environment.
-2. Copy the supplied archive to `data/raw/Student folder.zip` without extracting it. This is the same relative path on every teammate's checkout. For another location, set `PATHSNAP_DATA_ZIP` to the full path.
+2. Use the supplied development archive at `data/raw/Student folder.zip` without extracting it. It contains the training and student-test partitions. To use an archive stored elsewhere, set `PATHSNAP_DATA_ZIP` to its full path.
 3. Open `notebooks/gps_preprocessing.ipynb` from the project root or the `notebooks/` directory and run all cells. The notebook regenerates the files in `data/processed/`, including a local Folium HTML map. Map tiles need internet access.
 
 ## Processed data
@@ -68,7 +68,7 @@ Implementation and verification were assisted by Codex.
 The standalone viewer uses the committed processed observations and the original
 ZIP's road network. It does not read `.route` labels or require a classifier.
 Run these commands from the repository root after installing the existing
-dependencies and placing the ZIP at `data/raw/Student folder.zip`:
+dependencies. The viewer uses the ZIP at `data/raw/Student folder.zip` by default:
 
 ```bash
 python scripts/view_trip.py --list-trips
@@ -165,7 +165,7 @@ baseline**, **Logistic Regression**, and **KNN**. The two trained options read
 `experiments/baselines/knn_student_scores.parquet`, produced by Person 2's
 baseline experiments on the main branch. These score files must exist locally
 before you select the trained options. The distance option still works without
-them. The PR branch may not contain the score files until merged with main.
+them. 
 
 The score loader validates each `(split, trip_id, obs_id, arc_id)` key, the
 selected trip and partition, uniqueness, completeness and finite probabilities
@@ -239,3 +239,17 @@ the candidate tables:
 ```sh
 python scripts/generate_reference_labels.py
 ```
+
+## Train the two baseline classifiers
+
+After generating candidates and reference labels, run from the repository root:
+
+```sh
+python -m pip install -r requirements-baselines.txt
+python scripts/train_baselines.py
+python scripts/visualize_baselines.py
+```
+
+The [baseline experiment report](experiments/baselines/README.md) documents the
+Logistic Regression and KNN configurations, real metrics, plots, trained model
+artifacts, and the candidate score format for route reconstruction.

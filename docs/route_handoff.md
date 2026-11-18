@@ -27,7 +27,11 @@ before connecting a trained classifier. Never invent an arc to fill a failure.
 The backend will calculate evaluation metrics using reference data kept on the
 server. Return predictions, metrics and failure counts to the UI, not reference
 labels. Final route comparisons and report results must use real trips; synthetic
-checks are development evidence only. No decoder, API or UI is implemented yet.
+checks are development evidence only.
+
+`route_reconstruction/viterbi.py` now provides a log-space decoding core with
+variable candidate counts and explicit rejection of disconnected sequences.
+A separate Person 3 implementation now supplies graph transitions, gap splitting, the API and UI for the development demo; the standalone log-space core remains available.
 
 ## Progress and remaining deliverables (Person 3)
 
