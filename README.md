@@ -96,3 +96,42 @@ python scripts/generate_candidates.py
 ```
 
 Load either table with `pandas.read_parquet()`. Parquet preserves the leading zeros in `trip_id`.
+
+## Reference labels for training and evaluation
+
+The two `data/processed/reference_labels_*.parquet` files contain one row per
+observation keyed by `split`, `trip_id`, and `obs_id`. Each label is an estimate
+derived from the supplied ordered reference route. The archive supplies no
+independently verified per-observation arc labels.
+
+The generator projects GPS points onto reference arc occurrences within 75 m.
+It minimizes distance plus a 75 m cost per unmatched observation with a
+nondecreasing route-step constraint. A matched row is flagged as ambiguous if
+another distinct arc fits between its neighbouring assignments and is within
+3 m of its selected distance, or closer. Both thresholds are fixed development
+choices. Repeated arcs retain their separate route steps. The break flag records
+when a match advances across a discontinuity in the supplied route.
+
+- `reference_arc_id` and `reference_route_step` are null for unmatched observations.
+- `alignment_status` distinguishes aligned, ambiguous, and unmatched observations.
+- `has_candidates` and `reference_in_candidates` audit candidate coverage after
+  alignment. The candidate tables play no role in determining the reference arc.
+- `usable_for_training` selects aligned training observations whose reference arc
+  appears in the candidate table. Exclude entire candidate groups that fail this
+  check to avoid treating all candidates as negatives when the positive is absent.
+
+For supervised fitting, join the training candidates to these training labels by
+the observation key and set the binary target to
+`arc_id == reference_arc_id`. Preserve the trip ID for grouped validation.
+Use the student-test labels for development evaluation. Report point accuracy
+on aligned observations, including candidate misses as misses. Report the
+counts of excluded ambiguous and unmatched observations alongside the metric.
+Keep reference labels and alignment columns out of inference features and UI
+responses.
+
+Regenerate the labels and per-trip `reference_label_coverage.csv` after generating
+the candidate tables:
+
+```sh
+python scripts/generate_reference_labels.py
+```

@@ -13,3 +13,6 @@ data/processed/*
 .ipynb_checkpoints/
 __pycache__/
 .venv/
+!data/processed/reference_labels_train.parquet
+!data/processed/reference_labels_student_test.parquet
+!data/processed/reference_label_coverage.csv
