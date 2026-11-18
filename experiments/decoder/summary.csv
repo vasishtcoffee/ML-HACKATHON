@@ -1,0 +1,3 @@
+model,phase,fold,classifier_top1,decoded_top1,aligned_observations,candidate_misses,classifier_continuity,decoded_continuity
+random_forest,student_test,,0.550223693080836,0.81571367285653,16317,6,0.8034441185966091,0.9995634738623551
+xgboost,student_test,,0.5478335478335479,0.8147331004473861,16317,6,0.8025672855830521,0.9995634738623551

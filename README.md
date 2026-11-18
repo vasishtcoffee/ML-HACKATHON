@@ -269,3 +269,9 @@ configuration and comparison on the same trip folds as Random Forest.
 
 See [the tuning workflow](docs/tree_tuning.md) for commands, selection rules and
 limitations. Generate the recorded comparison with `python scripts/compare_tree_models.py`.
+
+## Route decoding
+
+See [route decoder method and student-test comparison](docs/route_decoder.md).
+The current decoder is a first graph-aware baseline; transition-scale selection
+and cross-validated route comparison remain open.
