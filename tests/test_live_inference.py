@@ -32,6 +32,7 @@ class LiveScorerTests(unittest.TestCase):
             "live_knn": "experiments/classifier_tuning/knn/knn_student_scores.parquet",
             "live_mlp": "experiments/classifier_tuning/mlp/mlp_student_scores.parquet",
             "live_xgboost": "experiments/xgboost_tuned/xgboost_student_scores.parquet",
+            "live_random_forest": "experiments/random_forest/random_forest_student_scores.parquet",
         }
         for model, path in examples.items():
             with self.subTest(model=model):
