@@ -14,11 +14,19 @@ ROOT = Path(__file__).resolve().parents[1]
 SCORE_FILES = {
     "logistic_regression": ROOT / "experiments/baselines/logistic_regression_student_scores.parquet",
     "knn": ROOT / "experiments/baselines/knn_student_scores.parquet",
+    "random_forest": ROOT / "experiments/random_forest/random_forest_student_scores.parquet",
+    "xgboost": ROOT / "experiments/xgboost/xgboost_student_scores.parquet",
+    "xgboost_tuned": ROOT / "experiments/xgboost_tuned/xgboost_tuned_student_scores.parquet",
+    "mlp": ROOT / "experiments/mlp/mlp_student_scores.parquet",
 }
 DISPLAY_NAMES = {
     "distance": "Distance baseline (development)",
     "logistic_regression": "Logistic Regression (trained)",
     "knn": "KNN (trained)",
+    "random_forest": "Random Forest (trained)",
+    "xgboost": "XGBoost (trained)",
+    "xgboost_tuned": "Tuned XGBoost (trained)",
+    "mlp": "MLP (trained)",
 }
 
 

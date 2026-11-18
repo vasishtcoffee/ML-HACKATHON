@@ -1,5 +1,7 @@
 # PathSnap
 
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/vasishtcoffee/ML-HACKATHON/blob/colab-live-demo/notebooks/pathsnap_colab_demo.ipynb)
+
 GPS track exploration and preprocessing for the ML hackathon.
 
 ## Setup
@@ -160,12 +162,12 @@ origin before starting the API.
 
 The development demo uses the ten **student-test** trips (not the reserved
 evaluator trips). The scorer selector offers the **distance development
-baseline**, **Logistic Regression**, and **KNN**. The two trained options read
-`experiments/baselines/logistic_regression_student_scores.parquet` and
-`experiments/baselines/knn_student_scores.parquet`, produced by Person 2's
-baseline experiments on the main branch. These score files must exist locally
-before you select the trained options. The distance option still works without
-them. 
+baseline**, **Logistic Regression**, **KNN**, **Random Forest**, **XGBoost**, **Tuned XGBoost**, and **MLP**. Trained options read their keyed
+candidate probabilities from
+`experiments/`; the corresponding score exports are committed with the model
+experiments. These are development predictions for the student-test partition,
+not a production inference path. The distance option remains available as a
+fallback.
 
 The score loader validates each `(split, trip_id, obs_id, arc_id)` key, the
 selected trip and partition, uniqueness, completeness and finite probabilities
@@ -182,8 +184,9 @@ labels are loaded server-side only for metrics, not for scoring, decoding or
 UI responses. Successful requests appear in the Uvicorn terminal. Internet
 access is required for map assets.
 
-A direct API request may supply `{"trip_id":"00000052","model":"knn"}`
-(or `"logistic_regression"` or `"distance"`). The /trips endpoint lists
+A direct API request may supply `{"trip_id":"00000052","model":"xgboost"}`
+(or `"random_forest"`, `"xgboost_tuned"`, `"mlp"`, `"knn"`,
+`"logistic_regression"`, or `"distance"`). The /trips endpoint lists
 available model names. The trained-score files are development artifacts:
 the **final evaluator deployment** needs a server-side trained-model inference
 path on evaluator-trip candidates, not student-test precomputed predictions.
