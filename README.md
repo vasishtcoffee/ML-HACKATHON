@@ -283,3 +283,7 @@ python scripts/visualize_mlp.py
 
 See the [MLP experiment report](experiments/mlp/README.md) for training settings,
 per-epoch and held-out results, plots, model artifact, and candidate score export.
+
+## Route decoding
+
+See [route decoder method and student-test comparison](docs/route_decoder.md). The current decoder is a first graph-aware baseline; transition-scale selection and cross-validated route comparison remain open.

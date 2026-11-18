@@ -1,0 +1,13 @@
+{
+  "models": [
+    "random_forest",
+    "xgboost"
+  ],
+  "phase": "student_test",
+  "beta_m": 30.0,
+  "transition_rule": "same forward arc or one directed adjacent arc",
+  "restart": "at GPS gaps, missing-candidate observations, or unreachable candidate sets",
+  "emission": "per-observation normalized candidate_positive_probability in log space",
+  "selection_note": "beta_m fixed before held-out evaluation; student-test results were not used for tuning",
+  "label_scope": "reference route geometrically aligned to observations; top-1 uses alignment_status aligned only"
+}
