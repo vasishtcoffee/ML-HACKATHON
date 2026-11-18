@@ -1,0 +1,3 @@
+split,trips,raw_gps,clean_gps,missing_rows,invalid_rows,raw_reversals,raw_zero_steps,one_second_steps,irregular_steps,gaps_over_5s,longest_gap_s,nodes,arcs,reference_breaks,one_second_pct
+student_test,10,19160,19160,0,0,0,0,18886,264,44,210.0,90689,185041,1,98.62140992167102
+train,80,208417,208417,0,0,0,0,201048,7289,1216,153064.0,1933485,3876904,13,96.50134157638826
