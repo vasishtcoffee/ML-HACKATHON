@@ -87,7 +87,8 @@ python scripts/view_trip.py --split student_test --trip-id 00000000 --data-zip "
 ```
 
 `PATHSNAP_DATA_ZIP` also works. Use `--output /path/to/map.html` to select the
-output location, or `--observations /path/to/observations.csv.gz` for another
+output location (it must end in `.html`), or
+`--observations /path/to/observations.csv.gz` for another
 preprocessed observation export with the same columns. Keep trip IDs zero-padded.
 
 The map has toggleable road, measured GPS, gap, and start/end layers. Click GPS

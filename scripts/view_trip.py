@@ -143,8 +143,10 @@ def main():
     parser.add_argument("--data-zip", type=Path,
                         default=Path(os.environ.get("PATHSNAP_DATA_ZIP",
                                                    ROOT / "data/raw/Student folder.zip")))
-    parser.add_argument("--output", type=Path)
+    parser.add_argument("--output", type=Path, help="Map output path ending in .html")
     args = parser.parse_args()
+    if args.output is not None and args.output.suffix != ".html":
+        parser.error("--output must end in .html")
     observations = pd.read_csv(args.observations, dtype={"trip_id": str})
     counts = observations.loc[observations.split.eq(args.split)].groupby("trip_id").size()
     if counts.empty:
