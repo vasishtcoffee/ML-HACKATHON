@@ -63,6 +63,43 @@ Keep `trip_id` as a string to preserve leading zeros. Empty motion values mean t
 
 Implementation and verification were assisted by Codex.
 
+## View a real trip (Person 3, task 1)
+
+The standalone viewer uses the committed processed observations and the original
+ZIP's road network. It does not read `.route` labels or require a classifier.
+Run these commands from the repository root after installing the existing
+dependencies and placing the ZIP at `data/raw/Student folder.zip`:
+
+```bash
+python scripts/view_trip.py --list-trips
+python scripts/view_trip.py --split train --trip-id 00000083
+```
+
+Open `data/viewer/train_00000083.html` in a browser. Internet access is needed
+for OpenStreetMap tiles and Folium's JavaScript/CSS assets. A JSON summary is
+saved beside the HTML. With no trip ID, the viewer selects the training trip
+whose observation count is nearest the median.
+
+To use a different archive path or student-test trip:
+
+```bash
+python scripts/view_trip.py --split student_test --trip-id 00000000 --data-zip "/path/to/Student folder.zip"
+```
+
+`PATHSNAP_DATA_ZIP` also works. Use `--output /path/to/map.html` to select the
+output location, or `--observations /path/to/observations.csv.gz` for another
+preprocessed observation export with the same columns. Keep trip IDs zero-padded.
+
+The map has toggleable road, measured GPS, gap, and start/end layers. Click GPS
+points to inspect original observation IDs, coordinates and timestamps. Roads
+are independent segments near the GPS extent; GPS points are not joined into
+lines across gaps. Orange rings mark observations following gaps over five
+seconds, consistent with the current preprocessing threshold. No prediction or
+accuracy is displayed. Reference routes are intentionally absent from this viewer.
+
+This is a CLI-selected exploration map, not yet the final API-backed trip selector.
+Generated viewer files stay under the existing ignored `data/` output paths.
+
 ## Updating dependencies
 
 With uv installed, resolve and install changes in a Python 3.11 environment:
