@@ -10,6 +10,7 @@ from .routing import Position, distance_m
 class Candidate:
     position: Position
     probability: float
+    candidate_rank: int  # one-based proximity rank from the original candidate table
 
 
 @dataclass(frozen=True)
