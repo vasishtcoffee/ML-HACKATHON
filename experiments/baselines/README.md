@@ -104,7 +104,7 @@ cover classifier-only predictions.
 From the repository root after preparing the candidate and label tables:
 
 ```sh
-python -m pip install -r requirements-baselines.txt
+python -m pip install -r requirements/requirements-baselines.txt
 python scripts/train_baselines.py
 python scripts/visualize_baselines.py
 python scripts/score_baseline.py experiments/baselines/logistic_regression.joblib data/processed/candidates_student_test.parquet data/processed/logistic_scores.parquet
