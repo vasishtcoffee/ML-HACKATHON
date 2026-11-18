@@ -1,0 +1,94 @@
+{
+  "features": {
+    "heading": [
+      "distance_to_arc_m",
+      "candidate_rank",
+      "fraction_along_arc",
+      "offset_from_arc_start_m",
+      "heading_agreement"
+    ],
+    "motion": [
+      "distance_to_arc_m",
+      "candidate_rank",
+      "fraction_along_arc",
+      "offset_from_arc_start_m",
+      "heading_agreement",
+      "projected_progress",
+      "log_speed"
+    ]
+  },
+  "settings": {
+    "logistic_regression": [
+      {
+        "C": 68.53570511104294,
+        "positive_weight": 1.0
+      },
+      {
+        "C": 1.0,
+        "positive_weight": 1.0
+      },
+      {
+        "C": 1.0,
+        "positive_weight": 2.0
+      }
+    ],
+    "knn": [
+      {
+        "n_neighbors": 15,
+        "weights": "uniform"
+      },
+      {
+        "n_neighbors": 15,
+        "weights": "distance"
+      },
+      {
+        "n_neighbors": 31,
+        "weights": "uniform"
+      },
+      {
+        "n_neighbors": 31,
+        "weights": "distance"
+      },
+      {
+        "n_neighbors": 41,
+        "weights": "uniform"
+      },
+      {
+        "n_neighbors": 41,
+        "weights": "distance"
+      },
+      {
+        "n_neighbors": 51,
+        "weights": "uniform"
+      },
+      {
+        "n_neighbors": 51,
+        "weights": "distance"
+      }
+    ],
+    "mlp": [
+      {
+        "shape": "32x16",
+        "epochs": 5,
+        "alpha": 0.00023242917225434374,
+        "learning_rate": 0.0022350140084872587
+      },
+      {
+        "shape": "32x16",
+        "epochs": 10,
+        "alpha": 0.00023242917225434374,
+        "learning_rate": 0.0022350140084872587
+      }
+    ]
+  },
+  "seed": 42,
+  "knn_fit_observation_cap": 16000,
+  "objective": "mean aligned observation top-1 over the prior three train folds",
+  "versions": {
+    "scikit-learn": "1.7.2",
+    "numpy": "2.2.0",
+    "pandas": "2.2.3",
+    "pyarrow": "22.0.0",
+    "joblib": "1.5.2"
+  }
+}

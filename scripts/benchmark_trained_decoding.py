@@ -155,9 +155,9 @@ def one_trip(model, trip_id, data, archive, candidates_file, labels_file, score_
     }
 
 
-def summarize(rows):
+def summarize(rows, models=MODELS):
     combined = []
-    for model in MODELS:
+    for model in models:
         sample = [r for r in rows if r["model"] == model]
         assert len(sample) == 10 and len({r["trip_id"] for r in sample}) == 10
         sums = lambda col: sum(x[col] for x in sample)
