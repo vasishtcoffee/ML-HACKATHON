@@ -1,0 +1,33 @@
+{
+  "features": [
+    "distance_to_arc_m",
+    "candidate_rank",
+    "fraction_along_arc",
+    "offset_from_arc_start_m"
+  ],
+  "candidate_threshold": 0.5,
+  "seed": 42,
+  "folds": 5,
+  "configurations": {
+    "logistic_regression": {
+      "C": 1.0,
+      "max_iter": 200,
+      "solver": "lbfgs",
+      "random_state": 42
+    },
+    "knn": {
+      "n_neighbors": 31,
+      "weights": "uniform",
+      "algorithm": "kd_tree",
+      "metric": "euclidean"
+    }
+  },
+  "versions": {
+    "scikit-learn": "1.7.2",
+    "numpy": "2.2.0",
+    "pandas": "2.2.3",
+    "scipy": "1.16.2",
+    "joblib": "1.5.2",
+    "pyarrow": "22.0.0"
+  }
+}
